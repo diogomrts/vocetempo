@@ -30,6 +30,11 @@ class Display {
   // Used for simple status/splash screens.
   void showTwoLines(const String& line1, const String& line2);
 
+  // Draw the main clock face: weekday on top, large time in the middle,
+  // date at the bottom. Pushes to the panel immediately.
+  void showClock(const String& weekday, const String& time,
+                 const String& date);
+
  private:
   bool _ready = false;
 };

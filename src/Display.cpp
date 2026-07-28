@@ -63,3 +63,35 @@ void Display::showTwoLines(const String& line1, const String& line2) {
 
   oled.display();
 }
+
+// Helper: draw a string horizontally centred at a given text size and y.
+static void drawCentered(Adafruit_SSD1306& d, const String& text,
+                         uint8_t size, int16_t y) {
+  d.setTextSize(size);
+  int16_t x1, y1;
+  uint16_t w, h;
+  d.getTextBounds(text, 0, y, &x1, &y1, &w, &h);
+  int16_t x = (SCREEN_WIDTH - (int16_t)w) / 2;
+  if (x < 0) x = 0;
+  d.setCursor(x, y);
+  d.print(text);
+}
+
+void Display::showClock(const String& weekday, const String& time,
+                        const String& date) {
+  if (!_ready) return;
+
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
+
+  // Weekday: small, top.
+  drawCentered(oled, weekday, 1, 2);
+
+  // Time: large, middle. Size 3 fits "HH:MM" nicely on 128px.
+  drawCentered(oled, time, 3, 22);
+
+  // Date: small, bottom.
+  drawCentered(oled, date, 1, 54);
+
+  oled.display();
+}
