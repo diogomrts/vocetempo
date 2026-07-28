@@ -20,8 +20,8 @@ breadboard and every remaining software stage will work against it.
 | GND       | - rail (ground)            | Shared by ALL devices and buttons       |
 | GPIO 21   | I2C SDA (OLED + RTC)       | Shared data line                        |
 | GPIO 22   | I2C SCL (OLED + RTC)       | Shared clock line                       |
-| GPIO 17   | DFPlayer RX (via 1k resistor) | ESP32 TX2 -> DFPlayer RX             |
-| GPIO 16   | DFPlayer TX                | ESP32 RX2 <- DFPlayer TX                |
+| GPIO 27   | DFPlayer RX (via 1k resistor) | ESP32 TX -> DFPlayer RX (30-pin board lacks 16/17) |
+| GPIO 14   | DFPlayer TX                | ESP32 RX <- DFPlayer TX                 |
 | GPIO 32   | Button UP                  | other side of button -> GND             |
 | GPIO 33   | Button DOWN                | other side of button -> GND             |
 | GPIO 25   | Button OK                  | other side of button -> GND             |
@@ -52,8 +52,8 @@ breadboard and every remaining software stage will work against it.
 | ------------ | ----------------------------------- |
 | VCC          | + rail (5 V)                        |
 | GND          | - rail                              |
-| RX           | GPIO 17 **through a 1k resistor**   |
-| TX           | GPIO 16                             |
+| RX           | GPIO 27 **through a 1k resistor**   |
+| TX           | GPIO 14                             |
 | SPK_1        | speaker wire 1                      |
 | SPK_2        | speaker wire 2                      |
 (Use SPK_1/SPK_2 for the bare speaker. Do NOT use DAC_L/DAC_R for a passive

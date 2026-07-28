@@ -2,27 +2,28 @@
  * Vocetempo - a standalone talking bedside clock.
  *
  * -------------------------------------------------------------------------
- * STAGE 3: Read the time from the DS3231 RTC and show it on the OLED.
+ * STAGE 5: Connect the DFPlayer and play one test audio clip.
  * -------------------------------------------------------------------------
  * Goal of this stage:
- *   Initialise the RTC, read the current time, and render a clock face
- *   (weekday / big time / date) that updates every second.
+ *   Bring up the DFPlayer Mini over UART and play /mp3/0001.mp3 ("It is")
+ *   through the speaker, proving the audio subsystem works. The clock from
+ *   Stage 3 keeps running on the OLED throughout.
  *
- * On first ever run (or after losing power with no battery), the RTC has no
- * valid time. We detect that with lostPower() and seed it from the sketch's
- * compile time so the display shows something sensible. Stage 4 will add
- * proper manual time setting.
- *
- * Wiring: OLED + DS3231 share the I2C bus (SDA=GPIO21, SCL=GPIO22),
- * both powered from 3V3. See docs/WIRING.md.
+ * Wiring (see docs/WIRING.md):
+ *   OLED + RTC on I2C (SDA 21, SCL 22, 3V3).
+ *   DFPlayer:  VCC->5V(VIN), GND->gnd, RX<-GPIO27 (via 1k), TX->GPIO14.
+ *   Speaker across SPK_1 / SPK_2. microSD in the DFPlayer.
  *
  * Expected behaviour:
- *   - Serial (115200) prints init status and the time once per second.
- *   - The OLED shows weekday, a large HH:MM, and the date, ticking live.
+ *   - Serial (115200) prints init status for OLED, RTC, and DFPlayer.
+ *   - Shortly after boot, the speaker says "It is".
+ *   - The OLED keeps showing the live clock.
+ *   - DFPlayer status messages are printed as they arrive.
  */
 
 #include <Arduino.h>
 
+#include "Audio.h"
 #include "Display.h"
 #include "RealtimeClock.h"
 
@@ -30,9 +31,11 @@ static const uint8_t LED_PIN = 2;
 
 static Display display;
 static RealtimeClock clock_;
+static Audio audio;
 
-// Track the last second we rendered so we only redraw when it changes.
 static uint8_t lastSecond = 255;
+static bool playedTestClip = false;
+static bool audioReady = false;
 
 void setup() {
   Serial.begin(115200);
@@ -42,10 +45,9 @@ void setup() {
 
   Serial.println();
   Serial.println(F("========================================"));
-  Serial.println(F("  Vocetempo - Stage 3: RTC + display"));
+  Serial.println(F("  Vocetempo - Stage 5: DFPlayer audio"));
   Serial.println(F("========================================"));
 
-  // Display first: it calls Wire.begin() for the shared I2C bus.
   if (display.begin()) {
     Serial.println(F("OLED initialised OK."));
   } else {
@@ -54,40 +56,47 @@ void setup() {
 
   if (clock_.begin()) {
     Serial.println(F("DS3231 RTC initialised OK."));
-
     if (clock_.lostPower()) {
       Serial.println(F("RTC lost power - seeding from compile time."));
       clock_.setToCompileTime();
     }
   } else {
     Serial.println(F("ERROR: DS3231 RTC not found."));
-    display.showTwoLines("RTC error", "check wiring");
+  }
+
+  Serial.println(F("Initialising DFPlayer (a few seconds)..."));
+  if (audio.begin()) {
+    audioReady = true;
+    Serial.println(F("DFPlayer initialised OK."));
+    audio.setVolume(30);  // 0..30; max volume for bring-up loudness test
+  } else {
+    Serial.println(F("ERROR: DFPlayer not responding."));
+    Serial.println(F("Check: 5V power, RX/TX (crossed) on 27/14, card inserted."));
   }
 }
 
 void loop() {
+  // Once, a moment after boot, play the test clip.
+  if (audioReady && !playedTestClip && millis() > 3000) {
+    Serial.println(F("Playing test clip 0001.mp3 (\"It is\")..."));
+    audio.playIndex(1);
+    playedTestClip = true;
+  }
+
+  // Surface any DFPlayer status/error messages.
+  if (audioReady) audio.pollStatus();
+
+  // Keep the clock ticking on the OLED.
   uint16_t year;
   uint8_t month, day, hour, minute, second, weekday;
-
   if (clock_.now(year, month, day, hour, minute, second, weekday)) {
-    // Only redraw + log when the second actually changes.
     if (second != lastSecond) {
       lastSecond = second;
-
-      display.showClock(clock_.weekdayString(),
-                        clock_.timeString(false),
+      display.showClock(clock_.weekdayString(), clock_.timeString(false),
                         clock_.dateString());
-
-      Serial.print(clock_.weekdayString());
-      Serial.print(' ');
-      Serial.print(clock_.dateString());
-      Serial.print(' ');
-      Serial.println(clock_.timeString(true));
-
-      // Blink the LED each second as a heartbeat.
       digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
     }
   }
 
-  delay(50);  // small poll interval; keeps the loop responsive
+  delay(20);
 }
