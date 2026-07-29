@@ -32,6 +32,16 @@ class Audio {
   // Play /mp3/000<index>.mp3 by its numeric index (1 = 0001.mp3).
   void playIndex(uint16_t index);
 
+  // Play a clip and block until it finishes (or a timeout). Used to chain
+  // several clips into one spoken phrase.
+  void playIndexBlocking(uint16_t index, unsigned long timeoutMs = 4000);
+
+  // Speak the given time as a sequence of clips, e.g. "It is ten forty five PM".
+  //   hour24  : 0..23
+  //   minute  : 0..59
+  //   use24h  : true = 24-hour speech, false = 12-hour with AM/PM
+  void speakTime(uint8_t hour24, uint8_t minute, bool use24h);
+
   // True while a clip is actively playing (uses the BUSY state if available).
   bool isBusy();
 

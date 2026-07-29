@@ -66,7 +66,7 @@ void setup() {
 
   if (audio.begin()) {
     audioReady = true;
-    audio.setVolume(30);
+    audio.setVolume(18);
     Serial.println(F("DFPlayer initialised OK."));
   } else {
     Serial.println(F("WARNING: DFPlayer not responding (OK button won't speak)."));
@@ -88,9 +88,17 @@ void handleButton(Button b, const char* name) {
     flashName = name;
     flashUntil = millis() + 800;
 
-    // Preview of Stage 8: OK speaks the test clip.
+    // Stage 8: OK speaks the current time.
     if (b == Button::Ok && audioReady) {
-      audio.playIndex(1);
+      uint16_t yr;
+      uint8_t mo, dy, hh, mm, ss, wd;
+      if (clock_.now(yr, mo, dy, hh, mm, ss, wd)) {
+        Serial.print(F("Speaking time: "));
+        Serial.print(hh);
+        Serial.print(':');
+        Serial.println(mm);
+        audio.speakTime(hh, mm, /*use24h=*/false);
+      }
     }
   }
 }

@@ -40,6 +40,48 @@ void Audio::playIndex(uint16_t index) {
   dfplayer.playMp3Folder(index);
 }
 
+void Audio::playIndexBlocking(uint16_t index, unsigned long timeoutMs) {
+  if (!_ready) return;
+
+  // Drain any stale status messages so they don't get mistaken for THIS
+  // clip's "finished" event.
+  while (dfplayer.available()) {
+    dfplayer.readType();
+    dfplayer.read();
+  }
+
+  dfplayer.playMp3Folder(index);
+
+  // Wait until the module reports this track finished, or we time out.
+  // A short minimum play time avoids misreading the initial start transient
+  // as an immediate finish.
+  unsigned long start = millis();
+  delay(40);  // let playback actually begin
+
+  while (millis() - start < timeoutMs) {
+    if (dfplayer.available()) {
+      uint8_t type = dfplayer.readType();
+      dfplayer.read();
+      if (type == DFPlayerPlayFinished) {
+        return;  // move straight to the next word for natural flow
+      }
+    }
+    delay(2);
+  }
+  // Timed out - continue anyway so a phrase never hangs indefinitely.
+}
+
+void Audio::speakTime(uint8_t hour24, uint8_t minute, bool use24h) {
+  if (!_ready) return;
+  (void)use24h;  // v1 uses the 12-hour pre-rendered phrase set
+
+  // Each time-of-day is a single pre-rendered phrase file:
+  //   index = hour24 * 60 + minute + 1   (see audio/generate_phrases.py)
+  // Playing one file = gapless, naturally intonated speech.
+  uint16_t index = (uint16_t)hour24 * 60 + minute + 1;
+  playIndexBlocking(index, 6000);
+}
+
 bool Audio::isBusy() {
   if (!_ready) return false;
   // available() is true when the module has a status message (e.g. finished).

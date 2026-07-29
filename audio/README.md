@@ -40,8 +40,31 @@ about -9.5 dB, peaks at 0 dB) without hard clipping. Check levels with:
 ffmpeg -i mp3/0001.mp3 -af volumedetect -f null /dev/null 2>&1 | grep volume
 ```
 
-## Planned clip set (modular time speech)
+## Clip set (full pre-rendered phrases)
 
-To be filled in when we build the speech sequencer: "It is", numbers,
-"o'clock", "AM"/"PM", "hundred", weekdays, etc. Keeping clips modular means
-far fewer files and easy future language support.
+The clock speaks each time as ONE complete pre-rendered sentence, so playback
+is gapless and naturally intonated (the DFPlayer is slow at chaining files,
+which made the earlier word-by-word approach sound choppy).
+
+Index scheme (files mp3/NNNN.mp3), 12-hour format:
+
+    index = hour24 * 60 + minute + 1      (range 1..1440)
+
+Examples:
+    00:00 -> 0001.mp3  "It is midnight"
+    12:00 -> 0721.mp3  "It is noon"
+    09:05 -> 0546.mp3  "It is nine oh five A.M."
+    22:45 -> 1366.mp3  "It is ten forty-five P.M."
+
+The firmware's speakTime() (src/Audio.cpp) computes this index and plays the
+single file. The formula there MUST match generate_phrases.py.
+
+Regenerate all 1440 phrases:
+
+```sh
+cd audio
+python3 generate_phrases.py --voice Samantha --workers 8
+```
+
+(generate_clips.py is the older modular word-clip generator, kept for
+reference but no longer used.)
