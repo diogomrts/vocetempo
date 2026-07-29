@@ -21,6 +21,7 @@
 
 #include <Arduino.h>
 
+#include "Announcer.h"
 #include "Audio.h"
 #include "Buttons.h"
 #include "Display.h"
@@ -32,6 +33,7 @@ static Display display;
 static RealtimeClock clock_;
 static Audio audio;
 static Buttons buttons;
+static Announcer announcer;
 
 static uint8_t lastSecond = 255;
 static bool audioReady = false;
@@ -48,7 +50,7 @@ void setup() {
 
   Serial.println();
   Serial.println(F("========================================"));
-  Serial.println(F("  Vocetempo - Stage 7: buttons"));
+  Serial.println(F("  Vocetempo - Stage 9: auto announcements"));
   Serial.println(F("========================================"));
 
   if (display.begin()) {
@@ -73,7 +75,11 @@ void setup() {
   }
 
   buttons.begin();
-  Serial.println(F("Buttons ready. Press UP/DOWN/OK/BACK to test."));
+
+  // Stage 9: automatic announcements. Hardcoded to every 15 minutes for now;
+  // this becomes user-configurable in the Stage 11 settings menu.
+  announcer.setInterval(AnnounceInterval::Quarter);
+  Serial.println(F("Auto announcements: every 15 min. OK speaks on demand."));
 }
 
 void handleButton(Button b, const char* name) {
@@ -118,6 +124,16 @@ void loop() {
   uint16_t year;
   uint8_t month, day, hour, minute, second, weekday;
   bool haveTime = clock_.now(year, month, day, hour, minute, second, weekday);
+
+  // Stage 9: automatic announcements at the configured interval.
+  if (haveTime && audioReady &&
+      announcer.shouldAnnounce(hour, minute, second)) {
+    Serial.print(F("Auto-announcing: "));
+    Serial.print(hour);
+    Serial.print(':');
+    Serial.println(minute);
+    audio.speakTime(hour, minute, /*use24h=*/false);
+  }
 
   bool flashing = flashName && millis() < flashUntil;
 
