@@ -31,9 +31,10 @@ class Display {
   void showTwoLines(const String& line1, const String& line2);
 
   // Draw the main clock face: weekday on top, large time in the middle,
-  // date at the bottom. Pushes to the panel immediately.
+  // date at the bottom. If quietHours is true, a small moon icon is shown in
+  // the top-right corner. Pushes to the panel immediately.
   void showClock(const String& weekday, const String& time,
-                 const String& date);
+                 const String& date, bool quietHours = false);
 
  private:
   bool _ready = false;

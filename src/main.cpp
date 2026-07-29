@@ -79,7 +79,12 @@ void setup() {
   // Stage 9: automatic announcements. Hardcoded to every 15 minutes for now;
   // this becomes user-configurable in the Stage 11 settings menu.
   announcer.setInterval(AnnounceInterval::Quarter);
-  Serial.println(F("Auto announcements: every 15 min. OK speaks on demand."));
+
+  // Stage 10: quiet hours 22:00 -> 08:00 (auto announcements suppressed;
+  // manual OK still speaks). Configurable in Stage 11.
+  announcer.setQuietHours(true, 22, 0, 8, 0);
+
+  Serial.println(F("Auto: every 15 min, quiet 22:00-08:00. OK always speaks."));
 }
 
 void handleButton(Button b, const char* name) {
@@ -151,8 +156,9 @@ void loop() {
     }
     if (haveTime && second != lastSecond) {
       lastSecond = second;
+      bool quiet = announcer.isQuietNow(hour, minute);
       display.showClock(clock_.weekdayString(), clock_.timeString(false),
-                        clock_.dateString());
+                        clock_.dateString(), quiet);
       digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
     }
   }

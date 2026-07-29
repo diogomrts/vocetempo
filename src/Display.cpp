@@ -77,8 +77,19 @@ static void drawCentered(Adafruit_SSD1306& d, const String& text,
   d.print(text);
 }
 
+// Draw a small crescent moon icon at (x,y) top-left, ~10px, to indicate quiet
+// hours. Done by drawing a filled disc then cutting a second disc out of it.
+static void drawMoon(Adafruit_SSD1306& d, int16_t x, int16_t y) {
+  const int16_t r = 5;
+  int16_t cx = x + r;
+  int16_t cy = y + r;
+  d.fillCircle(cx, cy, r, SSD1306_WHITE);
+  // Cut a black disc offset to the left to form a crescent.
+  d.fillCircle(cx - 3, cy, r, SSD1306_BLACK);
+}
+
 void Display::showClock(const String& weekday, const String& time,
-                        const String& date) {
+                        const String& date, bool quietHours) {
   if (!_ready) return;
 
   oled.clearDisplay();
@@ -92,6 +103,11 @@ void Display::showClock(const String& weekday, const String& time,
 
   // Date: small, bottom.
   drawCentered(oled, date, 1, 54);
+
+  // Quiet-hours moon icon, top-right corner.
+  if (quietHours) {
+    drawMoon(oled, SCREEN_WIDTH - 12, 1);
+  }
 
   oled.display();
 }
