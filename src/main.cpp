@@ -74,7 +74,7 @@ void speakNow() {
     Serial.print(hh);
     Serial.print(':');
     Serial.println(mm);
-    audio.speakTime(hh, mm, settings.use24h);
+    audio.speakTime(hh, mm, settings.use24h, languageOffset(settings.language));
   }
 }
 
@@ -184,7 +184,8 @@ void loop() {
     Serial.print(hour);
     Serial.print(':');
     Serial.println(minute);
-    audio.speakTime(hour, minute, settings.use24h);
+    audio.speakTime(hour, minute, settings.use24h,
+                    languageOffset(settings.language));
   }
 
   if (haveTime && second != lastSecond) {

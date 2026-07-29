@@ -46,11 +46,14 @@ class Audio {
   // Stop any current playback immediately.
   void stop();
 
-  // Speak the given time as a sequence of clips, e.g. "It is ten forty five PM".
-  //   hour24  : 0..23
-  //   minute  : 0..59
-  //   use24h  : true = 24-hour speech, false = 12-hour with AM/PM
-  void speakTime(uint8_t hour24, uint8_t minute, bool use24h);
+  // Speak the given time as a single pre-rendered phrase.
+  //   hour24     : 0..23
+  //   minute     : 0..59
+  //   use24h     : reserved (v1 uses 12-hour phrase sets)
+  //   langOffset : file-index offset selecting the language phrase set
+  //                (English 0, Portuguese 2000, Spanish 4000)
+  void speakTime(uint8_t hour24, uint8_t minute, bool use24h,
+                 uint16_t langOffset = 0);
 
   // True while a clip is actively playing (uses the BUSY state if available).
   bool isBusy();

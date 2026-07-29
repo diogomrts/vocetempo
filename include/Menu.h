@@ -52,6 +52,7 @@ class Menu {
     EditTime,
     EditDate,
     EditFormat,
+    EditLanguage,
   };
 
   Display& _display;
@@ -79,6 +80,7 @@ class Menu {
   void handleEditQuiet(Buttons& b, bool isStart);
   void handleEditTime(Buttons& b);
   void handleEditDate(Buttons& b);
+  void handleEditLanguage(Buttons& b);
 };
 
 #endif  // VOCETEMPO_MENU_H

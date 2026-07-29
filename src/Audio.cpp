@@ -81,14 +81,16 @@ void Audio::stop() {
   dfplayer.stop();
 }
 
-void Audio::speakTime(uint8_t hour24, uint8_t minute, bool use24h) {
+void Audio::speakTime(uint8_t hour24, uint8_t minute, bool use24h,
+                      uint16_t langOffset) {
   if (!_ready) return;
-  (void)use24h;  // v1 uses the 12-hour pre-rendered phrase set
+  (void)use24h;  // v1 uses the 12-hour pre-rendered phrase sets
 
-  // Each time-of-day is a single pre-rendered phrase file:
-  //   index = hour24 * 60 + minute + 1   (see audio/generate_phrases.py)
+  // Each time-of-day is a single pre-rendered phrase file, offset by language:
+  //   index = langOffset + hour24 * 60 + minute + 1
+  //   (English 0, Portuguese 2000, Spanish 4000 - see generate_multilang.py)
   // Playing one file = gapless, naturally intonated speech.
-  uint16_t index = (uint16_t)hour24 * 60 + minute + 1;
+  uint16_t index = langOffset + (uint16_t)hour24 * 60 + minute + 1;
   playIndexBlocking(index, 6000);
 }
 

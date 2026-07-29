@@ -9,9 +9,10 @@ static const char* kMainItems[] = {
     "Set time",   // 4
     "Set date",   // 5
     "12/24 hour", // 6
-    "Exit",       // 7
+    "Language",   // 7
+    "Exit",       // 8
 };
-static const uint8_t kMainCount = 8;
+static const uint8_t kMainCount = 9;
 
 static const char* intervalName(AnnounceInterval iv) {
   switch (iv) {
@@ -93,6 +94,10 @@ void Menu::render() {
       _display.showEditValue("Format", _settings.use24h ? "24 hour" : "12 hour",
                              "UP/DN  OK save");
       break;
+    case Screen::EditLanguage:
+      _display.showEditValue("Language", languageName(_settings.language),
+                             "UP/DN  OK save");
+      break;
     case Screen::EditQuietStart:
     case Screen::EditQuietEnd: {
       snprintf(buf, sizeof(buf), "%02u:%02u", _editH, _editM);
@@ -132,6 +137,7 @@ void Menu::handle(Buttons& b) {
     case Screen::EditQuietEnd: handleEditQuiet(b, false); break;
     case Screen::EditTime: handleEditTime(b); break;
     case Screen::EditDate: handleEditDate(b); break;
+    case Screen::EditLanguage: handleEditLanguage(b); break;
   }
 }
 
@@ -156,7 +162,8 @@ void Menu::handleMain(Buttons& b) {
       case 4: enterScreen(Screen::EditTime); break;
       case 5: enterScreen(Screen::EditDate); break;
       case 6: enterScreen(Screen::EditFormat); break;
-      case 7: _active = false; break;  // Exit
+      case 7: enterScreen(Screen::EditLanguage); break;
+      case 8: _active = false; break;  // Exit
     }
   }
 }
@@ -192,6 +199,23 @@ void Menu::handleEditVolume(Buttons& b) {
 void Menu::handleEditFormat(Buttons& b) {
   if (b.wasPressed(Button::Up) || b.wasPressed(Button::Down)) {
     _settings.use24h = !_settings.use24h; render();
+  }
+  if (b.wasPressed(Button::Ok)) { applyAndSave(); enterScreen(Screen::Main); }
+  if (b.wasPressed(Button::Back)) { _settings.load(); enterScreen(Screen::Main); }
+}
+
+void Menu::handleEditLanguage(Buttons& b) {
+  // Cycle English -> Portuguese -> Spanish.
+  uint8_t v = static_cast<uint8_t>(_settings.language);
+  if (b.wasPressed(Button::Up)) {
+    v = (v + 1) % 3;
+    _settings.language = static_cast<Language>(v);
+    render();
+  }
+  if (b.wasPressed(Button::Down)) {
+    v = (v == 0) ? 2 : v - 1;
+    _settings.language = static_cast<Language>(v);
+    render();
   }
   if (b.wasPressed(Button::Ok)) { applyAndSave(); enterScreen(Screen::Main); }
   if (b.wasPressed(Button::Back)) { _settings.load(); enterScreen(Screen::Main); }

@@ -54,12 +54,12 @@ def phrase_for(hour24: int, minute: int) -> str:
     return f"It is {hw} {number_words(minute)} {ampm}"
 
 
-# Trim silence + moderate loudness (one speaker at DFPlayer volume ~18).
+# Trim ONLY leading/trailing silence (never mid-phrase, so long sentences are
+# not cut off), then moderate loudness for one speaker at DFPlayer volume ~18.
 AUDIO_FILTER = (
-    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02:"
-    "stop_periods=1:stop_threshold=-45dB:stop_silence=0.05:detection=peak,"
+    "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.1,"
     "areverse,"
-    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02:detection=peak,"
+    "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.1,"
     "areverse,"
     "acompressor=threshold=-20dB:ratio=4:attack=3:release=80:makeup=6,"
     "alimiter=level_in=1:level_out=1:limit=0.97"

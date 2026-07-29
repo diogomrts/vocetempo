@@ -20,6 +20,8 @@ void Settings::load() {
 
   volume = prefs.getUChar("volume", volume);
   use24h = prefs.getBool("use24h", use24h);
+  language = static_cast<Language>(
+      prefs.getUChar("lang", static_cast<uint8_t>(language)));
 
   prefs.end();
 }
@@ -38,6 +40,7 @@ void Settings::save() {
 
   prefs.putUChar("volume", volume);
   prefs.putBool("use24h", use24h);
+  prefs.putUChar("lang", static_cast<uint8_t>(language));
 
   prefs.end();
 }

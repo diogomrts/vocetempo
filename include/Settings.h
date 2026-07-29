@@ -16,6 +16,30 @@
 
 #include "Announcer.h"  // for AnnounceInterval
 
+// Speech language. The value maps to a file-index offset in /mp3:
+//   English 0, Portuguese 2000, Spanish 4000 (see audio/generate_multilang.py).
+enum class Language : uint8_t { English, Portuguese, Spanish };
+
+// File-index offset for a language's phrase set in /mp3.
+inline uint16_t languageOffset(Language lang) {
+  switch (lang) {
+    case Language::Portuguese: return 2000;
+    case Language::Spanish: return 4000;
+    case Language::English:
+    default: return 0;
+  }
+}
+
+// Short display name for a language.
+inline const char* languageName(Language lang) {
+  switch (lang) {
+    case Language::Portuguese: return "Portugues";
+    case Language::Spanish: return "Espanol";
+    case Language::English:
+    default: return "English";
+  }
+}
+
 struct Settings {
   // Announcement behaviour.
   AnnounceInterval interval = AnnounceInterval::Hourly;
@@ -32,6 +56,9 @@ struct Settings {
 
   // Display / speech format.
   bool use24h = false;
+
+  // Speech language.
+  Language language = Language::English;
 
   // Load values from NVS (falls back to the defaults above if unset).
   void load();
