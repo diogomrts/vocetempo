@@ -20,6 +20,7 @@
  */
 
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 #include "Announcer.h"
 #include "Audio.h"
@@ -28,6 +29,12 @@
 #include "Menu.h"
 #include "RealtimeClock.h"
 #include "Settings.h"
+
+// Stage 12: soak-test aids.
+// Watchdog: if the loop ever hangs longer than this, the chip auto-resets.
+static const uint32_t WDT_TIMEOUT_S = 30;
+// Heartbeat: print uptime + free heap this often, to catch leaks/resets.
+static const unsigned long HEARTBEAT_MS = 60000;
 
 static const uint8_t LED_PIN = 2;
 
@@ -115,7 +122,15 @@ void setup() {
                           settings.quietStartM, settings.quietEndH,
                           settings.quietEndM);
 
+  // Stage 12: enable the task watchdog on the loop task. If loop() ever fails
+  // to check in within WDT_TIMEOUT_S, the chip resets and recovers on its own.
+  esp_task_wdt_init(WDT_TIMEOUT_S, /*panic=*/true);
+  esp_task_wdt_add(NULL);  // watch the current (loop) task
+
   Serial.println(F("Ready. BACK speaks the time; OK opens the menu."));
+  Serial.print(F("Soak test: watchdog "));
+  Serial.print(WDT_TIMEOUT_S);
+  Serial.println(F("s, heartbeat every 60s."));
 }
 
 void loop() {
@@ -179,6 +194,22 @@ void loop() {
                       clock_.dateString(), quiet);
     digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
   }
+
+  // Stage 12: heartbeat - print uptime, free heap, and the RTC time so a soak
+  // log shows liveness, memory stability, and clock accuracy over time.
+  static unsigned long lastBeat = 0;
+  if (millis() - lastBeat >= HEARTBEAT_MS) {
+    lastBeat = millis();
+    Serial.print(F("[hb] up="));
+    Serial.print(millis() / 1000);
+    Serial.print(F("s heap="));
+    Serial.print(ESP.getFreeHeap());
+    Serial.print(F(" rtc="));
+    Serial.println(clock_.timeString(true));
+  }
+
+  // Feed the watchdog so it knows the loop is healthy.
+  esp_task_wdt_reset();
 
   delay(5);
 }
