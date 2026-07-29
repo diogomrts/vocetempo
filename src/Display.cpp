@@ -111,3 +111,69 @@ void Display::showClock(const String& weekday, const String& time,
 
   oled.display();
 }
+
+void Display::showMenu(const String& title, const String* items, uint8_t count,
+                       uint8_t selected) {
+  if (!_ready) return;
+
+  oled.clearDisplay();
+  oled.setTextSize(1);
+
+  // Title bar: inverted row across the top.
+  oled.fillRect(0, 0, SCREEN_WIDTH, 12, SSD1306_WHITE);
+  oled.setTextColor(SSD1306_BLACK);
+  oled.setCursor(2, 2);
+  oled.print(title);
+  oled.setTextColor(SSD1306_WHITE);
+
+  // List area shows up to 4 rows of 13px each, windowed around the selection.
+  const uint8_t kRows = 4;
+  const uint8_t rowH = 13;
+  uint8_t first = 0;
+  if (count > kRows) {
+    if (selected >= kRows - 1) first = selected - (kRows - 2);
+    if (first + kRows > count) first = count - kRows;
+  }
+
+  for (uint8_t row = 0; row < kRows && (first + row) < count; row++) {
+    uint8_t idx = first + row;
+    int16_t y = 14 + row * rowH;
+    if (idx == selected) {
+      // Highlight the selected row.
+      oled.fillRect(0, y - 1, SCREEN_WIDTH, rowH, SSD1306_WHITE);
+      oled.setTextColor(SSD1306_BLACK);
+    } else {
+      oled.setTextColor(SSD1306_WHITE);
+    }
+    oled.setCursor(4, y + 1);
+    oled.print(items[idx]);
+  }
+
+  oled.setTextColor(SSD1306_WHITE);
+  oled.display();
+}
+
+void Display::showEditValue(const String& title, const String& value,
+                            const String& hint) {
+  if (!_ready) return;
+
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
+
+  // Title at top.
+  oled.setTextSize(1);
+  oled.setCursor(2, 2);
+  oled.print(title);
+
+  // Value large in the middle, centred.
+  drawCentered(oled, value, 2, 24);
+
+  // Hint at the bottom (e.g. "UP/DOWN change  OK save").
+  if (hint.length()) {
+    oled.setTextSize(1);
+    oled.setCursor(2, 54);
+    oled.print(hint);
+  }
+
+  oled.display();
+}

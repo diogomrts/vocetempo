@@ -32,6 +32,12 @@ class Buttons {
   // (i.e. a fresh press edge). Good for menu navigation / triggers.
   bool wasPressed(Button b);
 
+  // Hold-to-repeat: returns true once on the initial press, then repeatedly
+  // while the button stays held (after firstDelayMs, every intervalMs). Ideal
+  // for incrementing values like volume or time fields.
+  bool repeat(Button b, unsigned long firstDelayMs = 400,
+              unsigned long intervalMs = 120);
+
   // True while the button is currently held down.
   bool isDown(Button b);
 

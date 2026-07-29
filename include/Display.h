@@ -36,6 +36,16 @@ class Display {
   void showClock(const String& weekday, const String& time,
                  const String& date, bool quietHours = false);
 
+  // Draw a scrollable menu: a title bar plus a list of items with the
+  // selected item highlighted. Shows a window of items around the selection.
+  void showMenu(const String& title, const String* items, uint8_t count,
+                uint8_t selected);
+
+  // Draw a single value being edited: a title, the value large in the middle,
+  // and up/down hints. Used for volume, interval, time fields, etc.
+  void showEditValue(const String& title, const String& value,
+                     const String& hint = "");
+
  private:
   bool _ready = false;
 };

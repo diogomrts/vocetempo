@@ -6,12 +6,14 @@ static const uint8_t kPins[] = {32, 33, 25, 26};
 // Simple, dependency-free debounce. For each button we track the last stable
 // state, the last raw reading, and when it last changed. This avoids relying
 // on a third-party library and is easy to reason about / maintain.
-static const unsigned long kDebounceMs = 20;
+static const unsigned long kDebounceMs = 8;
 
 static bool stableLow[4];       // debounced "is pressed" (active-low -> LOW)
 static bool lastRawLow[4];      // previous raw reading
 static unsigned long lastChange[4];
 static bool pressedEdge[4];     // set true on a fresh press, cleared by wasPressed()
+static unsigned long pressStart[4];   // when the current press began
+static unsigned long lastRepeat[4];   // last time repeat() fired for a hold
 
 void Buttons::begin() {
   for (uint8_t i = 0; i < kCount; i++) {
@@ -40,6 +42,8 @@ void Buttons::update() {
         if (rawLow) {
           // Transitioned to pressed (HIGH->LOW): record a press edge.
           pressedEdge[i] = true;
+          pressStart[i] = now;
+          lastRepeat[i] = now;
         }
       }
     }
@@ -52,6 +56,30 @@ bool Buttons::wasPressed(Button b) {
   if (pressedEdge[i]) {
     pressedEdge[i] = false;  // consume the edge
     return true;
+  }
+  return false;
+}
+
+bool Buttons::repeat(Button b, unsigned long firstDelayMs,
+                     unsigned long intervalMs) {
+  uint8_t i = static_cast<uint8_t>(b);
+  if (i >= kCount) return false;
+
+  // Fire immediately on the initial press edge.
+  if (pressedEdge[i]) {
+    pressedEdge[i] = false;
+    lastRepeat[i] = millis();
+    return true;
+  }
+
+  // While held, fire repeatedly after the initial delay.
+  if (stableLow[i]) {
+    unsigned long now = millis();
+    if (now - pressStart[i] >= firstDelayMs &&
+        now - lastRepeat[i] >= intervalMs) {
+      lastRepeat[i] = now;
+      return true;
+    }
   }
   return false;
 }

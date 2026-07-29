@@ -59,6 +59,11 @@ void Audio::playIndexBlocking(uint16_t index, unsigned long timeoutMs) {
   delay(40);  // let playback actually begin
 
   while (millis() - start < timeoutMs) {
+    // Allow the UI to abort speech (e.g. a button press).
+    if (_interruptCheck && _interruptCheck()) {
+      stop();
+      return;
+    }
     if (dfplayer.available()) {
       uint8_t type = dfplayer.readType();
       dfplayer.read();
@@ -69,6 +74,11 @@ void Audio::playIndexBlocking(uint16_t index, unsigned long timeoutMs) {
     delay(2);
   }
   // Timed out - continue anyway so a phrase never hangs indefinitely.
+}
+
+void Audio::stop() {
+  if (!_ready) return;
+  dfplayer.stop();
 }
 
 void Audio::speakTime(uint8_t hour24, uint8_t minute, bool use24h) {

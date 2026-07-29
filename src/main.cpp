@@ -2,21 +2,21 @@
  * Vocetempo - a standalone talking bedside clock.
  *
  * -------------------------------------------------------------------------
- * STAGE 7: Read the four push buttons (debounced).
+ * STAGE 11: Settings menu + persistent storage.
  * -------------------------------------------------------------------------
- * Goal of this stage:
- *   Verify all four buttons (UP/DOWN/OK/BACK) register clean, single presses.
- *   Each press is printed to Serial and briefly shown on the OLED. As a
- *   preview of Stage 8, pressing OK speaks the test clip.
+ * The app is now a small state machine with two views:
+ *   - Clock view: shows the time, speaks on demand, auto-announces.
+ *   - Menu view : configure interval, quiet hours, volume, time, date, format.
  *
- * Wiring (see docs/WIRING.md): each button connects its GPIO to GND.
- *   UP=32  DOWN=33  OK=25  BACK=26   (internal pull-ups, active-low)
+ * Controls (clock view):
+ *   - BACK : speak the current time.
+ *   - OK   : open the settings menu.
+ * Controls (menu view): UP/DOWN navigate (hold to repeat), OK select/confirm,
+ *   BACK go back/exit.
  *
- * Expected behaviour:
- *   - Clock shows on the OLED as usual.
- *   - Pressing any button prints e.g. "Button pressed: UP" once per press
- *     (no repeats/bounce) and flashes the name on screen.
- *   - Pressing OK also plays "It is".
+ * Settings persist in flash (NVS) and are reloaded at boot.
+ *
+ * Wiring: see docs/WIRING.md.
  */
 
 #include <Arduino.h>
@@ -25,7 +25,9 @@
 #include "Audio.h"
 #include "Buttons.h"
 #include "Display.h"
+#include "Menu.h"
 #include "RealtimeClock.h"
+#include "Settings.h"
 
 static const uint8_t LED_PIN = 2;
 
@@ -34,13 +36,40 @@ static RealtimeClock clock_;
 static Audio audio;
 static Buttons buttons;
 static Announcer announcer;
+static Settings settings;
+static Menu menu(display, settings, announcer, clock_);
 
 static uint8_t lastSecond = 255;
 static bool audioReady = false;
 
-// When non-zero, show this button name on the OLED until the given millis().
-static const char* flashName = nullptr;
-static unsigned long flashUntil = 0;
+// Remembers if OK was the button that interrupted speech, so the main loop can
+// still act on it (open the menu) without needing a second press.
+static bool pendingOpenMenu = false;
+
+// Interrupt check for Audio: returns true if the user presses any button
+// during speech, so playback aborts and the UI stays responsive.
+bool anyButtonInterrupt() {
+  buttons.update();
+  bool ok = buttons.wasPressed(Button::Ok);
+  bool other = buttons.wasPressed(Button::Back) ||
+               buttons.wasPressed(Button::Up) ||
+               buttons.wasPressed(Button::Down);
+  if (ok) pendingOpenMenu = true;  // carry the intent out to the main loop
+  return ok || other;
+}
+
+void speakNow() {
+  if (!audioReady) return;
+  uint16_t yr;
+  uint8_t mo, dy, hh, mm, ss, wd;
+  if (clock_.now(yr, mo, dy, hh, mm, ss, wd)) {
+    Serial.print(F("Speaking: "));
+    Serial.print(hh);
+    Serial.print(':');
+    Serial.println(mm);
+    audio.speakTime(hh, mm, settings.use24h);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -50,7 +79,7 @@ void setup() {
 
   Serial.println();
   Serial.println(F("========================================"));
-  Serial.println(F("  Vocetempo - Stage 9: auto announcements"));
+  Serial.println(F("  Vocetempo - Stage 11: settings menu"));
   Serial.println(F("========================================"));
 
   if (display.begin()) {
@@ -66,102 +95,90 @@ void setup() {
     Serial.println(F("ERROR: DS3231 RTC not found."));
   }
 
+  // Load persisted settings (or defaults on first boot).
+  settings.load();
+
   if (audio.begin()) {
     audioReady = true;
-    audio.setVolume(18);
+    audio.setVolume(settings.volume);
+    audio.setInterruptCheck(anyButtonInterrupt);  // press a button to stop speech
     Serial.println(F("DFPlayer initialised OK."));
   } else {
-    Serial.println(F("WARNING: DFPlayer not responding (OK button won't speak)."));
+    Serial.println(F("WARNING: DFPlayer not responding."));
   }
 
   buttons.begin();
 
-  // Stage 9: automatic announcements. Hardcoded to every 15 minutes for now;
-  // this becomes user-configurable in the Stage 11 settings menu.
-  announcer.setInterval(AnnounceInterval::Quarter);
+  // Apply loaded settings to the announcer.
+  announcer.setInterval(settings.interval);
+  announcer.setQuietHours(settings.quietEnabled, settings.quietStartH,
+                          settings.quietStartM, settings.quietEndH,
+                          settings.quietEndM);
 
-  // Stage 10: quiet hours 22:00 -> 08:00 (auto announcements suppressed;
-  // manual OK still speaks). Configurable in Stage 11.
-  announcer.setQuietHours(true, 22, 0, 8, 0);
-
-  Serial.println(F("Auto: every 15 min, quiet 22:00-08:00. OK always speaks."));
-}
-
-void handleButton(Button b, const char* name) {
-  if (buttons.wasPressed(b)) {
-    // Rate-limit prints so a flaky contact can never flood the serial line.
-    static unsigned long lastPrint = 0;
-    if (millis() - lastPrint > 150) {
-      lastPrint = millis();
-      Serial.print(F("Button pressed: "));
-      Serial.println(name);
-    }
-    flashName = name;
-    flashUntil = millis() + 800;
-
-    // Stage 8: OK speaks the current time.
-    if (b == Button::Ok && audioReady) {
-      uint16_t yr;
-      uint8_t mo, dy, hh, mm, ss, wd;
-      if (clock_.now(yr, mo, dy, hh, mm, ss, wd)) {
-        Serial.print(F("Speaking time: "));
-        Serial.print(hh);
-        Serial.print(':');
-        Serial.println(mm);
-        audio.speakTime(hh, mm, /*use24h=*/false);
-      }
-    }
-  }
+  Serial.println(F("Ready. BACK speaks the time; OK opens the menu."));
 }
 
 void loop() {
   buttons.update();
 
-  handleButton(Button::Up, "UP");
-  handleButton(Button::Down, "DOWN");
-  handleButton(Button::Ok, "OK");
-  handleButton(Button::Back, "BACK");
+  if (menu.isActive()) {
+    // ---- Menu view ----
+    menu.handle(buttons);
+
+    // When the menu exits, re-apply volume (it may have changed) and force a
+    // clock redraw.
+    if (!menu.isActive()) {
+      audio.setVolume(settings.volume);
+      lastSecond = 255;
+    }
+    delay(5);
+    return;
+  }
+
+  // ---- Clock view ----
+
+  // If OK was pressed to interrupt speech, honour that intent now by opening
+  // the menu (no second press needed).
+  if (pendingOpenMenu) {
+    pendingOpenMenu = false;
+    menu.open();
+    delay(5);
+    return;
+  }
+
+  // BACK speaks the current time; OK opens the settings menu.
+  if (buttons.wasPressed(Button::Back)) {
+    speakNow();
+  }
+  if (buttons.wasPressed(Button::Ok)) {
+    menu.open();
+    delay(5);
+    return;  // start the menu cleanly next loop (no leaked events)
+  }
 
   if (audioReady) audio.pollStatus();
 
-  // Update the display roughly once per second, or immediately to show a
-  // button flash.
   uint16_t year;
   uint8_t month, day, hour, minute, second, weekday;
   bool haveTime = clock_.now(year, month, day, hour, minute, second, weekday);
 
-  // Stage 9: automatic announcements at the configured interval.
+  // Automatic announcements at the configured interval (skipped in quiet hrs).
   if (haveTime && audioReady &&
       announcer.shouldAnnounce(hour, minute, second)) {
     Serial.print(F("Auto-announcing: "));
     Serial.print(hour);
     Serial.print(':');
     Serial.println(minute);
-    audio.speakTime(hour, minute, /*use24h=*/false);
+    audio.speakTime(hour, minute, settings.use24h);
   }
 
-  bool flashing = flashName && millis() < flashUntil;
-
-  static bool wasFlashing = false;
-  if (flashing) {
-    // Show the pressed button name prominently.
-    display.showTwoLines("Button:", flashName);
-    wasFlashing = true;
-  } else {
-    if (wasFlashing) {
-      // Flash just ended - force a clock redraw.
-      lastSecond = 255;
-      wasFlashing = false;
-      flashName = nullptr;
-    }
-    if (haveTime && second != lastSecond) {
-      lastSecond = second;
-      bool quiet = announcer.isQuietNow(hour, minute);
-      display.showClock(clock_.weekdayString(), clock_.timeString(false),
-                        clock_.dateString(), quiet);
-      digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
-    }
+  if (haveTime && second != lastSecond) {
+    lastSecond = second;
+    bool quiet = announcer.isQuietNow(hour, minute);
+    display.showClock(clock_.weekdayString(), clock_.timeString(false),
+                      clock_.dateString(), quiet);
+    digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
   }
 
-  delay(5);  // keep the loop fast so button sampling stays responsive
+  delay(5);
 }

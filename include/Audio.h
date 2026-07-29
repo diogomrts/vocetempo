@@ -32,9 +32,19 @@ class Audio {
   // Play /mp3/000<index>.mp3 by its numeric index (1 = 0001.mp3).
   void playIndex(uint16_t index);
 
+  // Optional interrupt check: if set, it is polled during blocking playback;
+  // when it returns true, playback is stopped early. Lets the UI stay
+  // responsive (e.g. a button press aborts speech).
+  typedef bool (*InterruptCheck)();
+  void setInterruptCheck(InterruptCheck cb) { _interruptCheck = cb; }
+
   // Play a clip and block until it finishes (or a timeout). Used to chain
-  // several clips into one spoken phrase.
+  // several clips into one spoken phrase. Aborts early if the interrupt
+  // check returns true.
   void playIndexBlocking(uint16_t index, unsigned long timeoutMs = 4000);
+
+  // Stop any current playback immediately.
+  void stop();
 
   // Speak the given time as a sequence of clips, e.g. "It is ten forty five PM".
   //   hour24  : 0..23
@@ -51,6 +61,7 @@ class Audio {
 
  private:
   bool _ready = false;
+  InterruptCheck _interruptCheck = nullptr;
 };
 
 #endif  // VOCETEMPO_AUDIO_H
