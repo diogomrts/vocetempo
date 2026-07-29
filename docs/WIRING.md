@@ -64,7 +64,16 @@ speaker. microSD card goes into the DFPlayer, not the ESP32.)
 | ------- | -------------- |
 | wire 1  | DFPlayer SPK_1 |
 | wire 2  | DFPlayer SPK_2 |
-(Polarity does not matter for a simple speaker.)
+
+IMPORTANT - the DFPlayer output is MONO and BRIDGE-TIED (BTL):
+- SPK_1 and SPK_2 are the TWO TERMINALS OF ONE SPEAKER, not left/right.
+- NEITHER pin is ground. Do NOT connect a speaker wire to GND.
+- Do NOT tie SPK_1 and SPK_2 together.
+- Use ONE speaker across SPK_1/SPK_2. (Two speakers only in SERIES = 8 ohm;
+  never in parallel = 2 ohm, which overheats the amp.)
+- Polarity does not matter for a single speaker.
+- Wiring a speaker pin to GND or shorting SPK_1+SPK_2 shorts the 8002B amp
+  and makes it overheat.
 
 ### Buttons (x4) - active-low with internal pull-ups
 Each button bridges its GPIO to GND when pressed. We enable the ESP32's

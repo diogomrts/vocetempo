@@ -2,28 +2,27 @@
  * Vocetempo - a standalone talking bedside clock.
  *
  * -------------------------------------------------------------------------
- * STAGE 5: Connect the DFPlayer and play one test audio clip.
+ * STAGE 7: Read the four push buttons (debounced).
  * -------------------------------------------------------------------------
  * Goal of this stage:
- *   Bring up the DFPlayer Mini over UART and play /mp3/0001.mp3 ("It is")
- *   through the speaker, proving the audio subsystem works. The clock from
- *   Stage 3 keeps running on the OLED throughout.
+ *   Verify all four buttons (UP/DOWN/OK/BACK) register clean, single presses.
+ *   Each press is printed to Serial and briefly shown on the OLED. As a
+ *   preview of Stage 8, pressing OK speaks the test clip.
  *
- * Wiring (see docs/WIRING.md):
- *   OLED + RTC on I2C (SDA 21, SCL 22, 3V3).
- *   DFPlayer:  VCC->5V(VIN), GND->gnd, RX<-GPIO27 (via 1k), TX->GPIO14.
- *   Speaker across SPK_1 / SPK_2. microSD in the DFPlayer.
+ * Wiring (see docs/WIRING.md): each button connects its GPIO to GND.
+ *   UP=32  DOWN=33  OK=25  BACK=26   (internal pull-ups, active-low)
  *
  * Expected behaviour:
- *   - Serial (115200) prints init status for OLED, RTC, and DFPlayer.
- *   - Shortly after boot, the speaker says "It is".
- *   - The OLED keeps showing the live clock.
- *   - DFPlayer status messages are printed as they arrive.
+ *   - Clock shows on the OLED as usual.
+ *   - Pressing any button prints e.g. "Button pressed: UP" once per press
+ *     (no repeats/bounce) and flashes the name on screen.
+ *   - Pressing OK also plays "It is".
  */
 
 #include <Arduino.h>
 
 #include "Audio.h"
+#include "Buttons.h"
 #include "Display.h"
 #include "RealtimeClock.h"
 
@@ -32,10 +31,14 @@ static const uint8_t LED_PIN = 2;
 static Display display;
 static RealtimeClock clock_;
 static Audio audio;
+static Buttons buttons;
 
 static uint8_t lastSecond = 255;
-static bool playedTestClip = false;
 static bool audioReady = false;
+
+// When non-zero, show this button name on the OLED until the given millis().
+static const char* flashName = nullptr;
+static unsigned long flashUntil = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -45,7 +48,7 @@ void setup() {
 
   Serial.println();
   Serial.println(F("========================================"));
-  Serial.println(F("  Vocetempo - Stage 5: DFPlayer audio"));
+  Serial.println(F("  Vocetempo - Stage 7: buttons"));
   Serial.println(F("========================================"));
 
   if (display.begin()) {
@@ -56,41 +59,73 @@ void setup() {
 
   if (clock_.begin()) {
     Serial.println(F("DS3231 RTC initialised OK."));
-    if (clock_.lostPower()) {
-      Serial.println(F("RTC lost power - seeding from compile time."));
-      clock_.setToCompileTime();
-    }
+    if (clock_.lostPower()) clock_.setToCompileTime();
   } else {
     Serial.println(F("ERROR: DS3231 RTC not found."));
   }
 
-  Serial.println(F("Initialising DFPlayer (a few seconds)..."));
   if (audio.begin()) {
     audioReady = true;
+    audio.setVolume(30);
     Serial.println(F("DFPlayer initialised OK."));
-    audio.setVolume(30);  // 0..30; max volume for bring-up loudness test
   } else {
-    Serial.println(F("ERROR: DFPlayer not responding."));
-    Serial.println(F("Check: 5V power, RX/TX (crossed) on 27/14, card inserted."));
+    Serial.println(F("WARNING: DFPlayer not responding (OK button won't speak)."));
+  }
+
+  buttons.begin();
+  Serial.println(F("Buttons ready. Press UP/DOWN/OK/BACK to test."));
+}
+
+void handleButton(Button b, const char* name) {
+  if (buttons.wasPressed(b)) {
+    // Rate-limit prints so a flaky contact can never flood the serial line.
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint > 150) {
+      lastPrint = millis();
+      Serial.print(F("Button pressed: "));
+      Serial.println(name);
+    }
+    flashName = name;
+    flashUntil = millis() + 800;
+
+    // Preview of Stage 8: OK speaks the test clip.
+    if (b == Button::Ok && audioReady) {
+      audio.playIndex(1);
+    }
   }
 }
 
 void loop() {
-  // Once, a moment after boot, play the test clip.
-  if (audioReady && !playedTestClip && millis() > 3000) {
-    Serial.println(F("Playing test clip 0001.mp3 (\"It is\")..."));
-    audio.playIndex(1);
-    playedTestClip = true;
-  }
+  buttons.update();
 
-  // Surface any DFPlayer status/error messages.
+  handleButton(Button::Up, "UP");
+  handleButton(Button::Down, "DOWN");
+  handleButton(Button::Ok, "OK");
+  handleButton(Button::Back, "BACK");
+
   if (audioReady) audio.pollStatus();
 
-  // Keep the clock ticking on the OLED.
+  // Update the display roughly once per second, or immediately to show a
+  // button flash.
   uint16_t year;
   uint8_t month, day, hour, minute, second, weekday;
-  if (clock_.now(year, month, day, hour, minute, second, weekday)) {
-    if (second != lastSecond) {
+  bool haveTime = clock_.now(year, month, day, hour, minute, second, weekday);
+
+  bool flashing = flashName && millis() < flashUntil;
+
+  static bool wasFlashing = false;
+  if (flashing) {
+    // Show the pressed button name prominently.
+    display.showTwoLines("Button:", flashName);
+    wasFlashing = true;
+  } else {
+    if (wasFlashing) {
+      // Flash just ended - force a clock redraw.
+      lastSecond = 255;
+      wasFlashing = false;
+      flashName = nullptr;
+    }
+    if (haveTime && second != lastSecond) {
       lastSecond = second;
       display.showClock(clock_.weekdayString(), clock_.timeString(false),
                         clock_.dateString());
@@ -98,5 +133,5 @@ void loop() {
     }
   }
 
-  delay(20);
+  delay(5);  // keep the loop fast so button sampling stays responsive
 }
