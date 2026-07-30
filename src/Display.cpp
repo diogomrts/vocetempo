@@ -22,6 +22,10 @@ bool Display::begin() {
   // Wire.begin() with no args uses the ESP32 default I2C pins (SDA 21, SCL 22).
   Wire.begin();
 
+  // A modest timeout means a stuck/glitching bus returns an error instead of
+  // blocking the whole loop (which is what flooded the log during the fault).
+  Wire.setTimeOut(50);  // ms
+
   // SSD1306_SWITCHCAPVCC tells the driver the panel generates its display
   // voltage internally (true for these modules).
   if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDRESS)) {
@@ -29,6 +33,25 @@ bool Display::begin() {
     return false;
   }
 
+  _ready = true;
+  oled.clearDisplay();
+  oled.display();
+  return true;
+}
+
+bool Display::recover() {
+  // Tear the bus down and bring it back up, then re-init the panel. This
+  // clears a wedged I2C peripheral after a wiring glitch.
+  Wire.end();
+  delay(20);
+  Wire.begin();
+  Wire.setTimeOut(50);
+  delay(20);
+
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDRESS)) {
+    _ready = false;
+    return false;
+  }
   _ready = true;
   oled.clearDisplay();
   oled.display();

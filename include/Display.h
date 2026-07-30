@@ -20,6 +20,11 @@ class Display {
   // on the bus (e.g. wiring problem). Safe to call once in setup().
   bool begin();
 
+  // Attempt to recover the I2C bus + display after a fault (e.g. a wire
+  // glitched). Re-inits Wire and re-runs the panel init. Returns true on
+  // success. Safe to call repeatedly.
+  bool recover();
+
   // Clear the screen buffer (does not push to the panel until show()).
   void clear();
 

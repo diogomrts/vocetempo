@@ -177,6 +177,21 @@ void loop() {
   uint8_t month, day, hour, minute, second, weekday;
   bool haveTime = clock_.now(year, month, day, hour, minute, second, weekday);
 
+  // I2C fault recovery: if time reads keep failing (a glitching bus/loose
+  // wire), the RTC and OLED share the bus, so recover it instead of flooding
+  // errors. After several consecutive bad reads, re-init the bus + display.
+  static uint16_t badReads = 0;
+  if (!haveTime) {
+    badReads++;
+    if (badReads >= 20) {  // ~ several hundred ms of failures
+      Serial.println(F("I2C fault: attempting bus/display recovery..."));
+      display.recover();
+      badReads = 0;
+    }
+  } else {
+    badReads = 0;
+  }
+
   // Automatic announcements at the configured interval (skipped in quiet hrs).
   if (haveTime && audioReady &&
       announcer.shouldAnnounce(hour, minute, second)) {

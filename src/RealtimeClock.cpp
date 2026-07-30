@@ -42,6 +42,16 @@ bool RealtimeClock::now(uint16_t& year, uint8_t& month, uint8_t& day,
                         uint8_t& weekday) {
   if (!_ready) return false;
   DateTime t = rtc.now();
+
+  // Reject obviously corrupt reads (e.g. from a glitching I2C bus). RTClib's
+  // isValid() checks the fields parse to a sane date; we also bound-check the
+  // ranges defensively so a garbage read never propagates into the UI or an
+  // announcement.
+  if (!t.isValid() || t.hour() > 23 || t.minute() > 59 || t.second() > 59 ||
+      t.month() < 1 || t.month() > 12 || t.day() < 1 || t.day() > 31) {
+    return false;
+  }
+
   year = t.year();
   month = t.month();
   day = t.day();
