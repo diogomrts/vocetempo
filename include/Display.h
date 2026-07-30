@@ -14,6 +14,8 @@
 
 #include <Arduino.h>
 
+#include "Panda.h"
+
 class Display {
  public:
   // Initialise the OLED over I2C. Returns false if the display was not found
@@ -35,11 +37,24 @@ class Display {
   // Used for simple status/splash screens.
   void showTwoLines(const String& line1, const String& line2);
 
+  // Play the animated panda boot splash (blinks, waves, shows the name).
+  // Blocking; runs for roughly a couple of seconds then returns. Called once
+  // at startup before the clock face appears.
+  void showBootSplash();
+
+  // Render a single frame of the interactive "pet the panda" screen: a large
+  // panda in the given pose, a caption at the bottom, and a row of hearts
+  // showing how much it has been petted. Non-blocking (draws one frame); the
+  // interaction loop lives in main.cpp so button handling stays in one place.
+  void showPandaFrame(Panda::Pose pose, uint8_t hearts, const String& caption);
+
   // Draw the main clock face: weekday on top, large time in the middle,
   // date at the bottom. If quietHours is true, a small moon icon is shown in
-  // the top-right corner. Pushes to the panel immediately.
+  // the top-right corner; if muted is true, a speaker-with-slash icon is shown
+  // in the top-left corner. Pushes to the panel immediately.
   void showClock(const String& weekday, const String& time,
-                 const String& date, bool quietHours = false);
+                 const String& date, bool quietHours = false,
+                 bool muted = false);
 
   // Draw a scrollable menu: a title bar plus a list of items with the
   // selected item highlighted. Shows a window of items around the selection.

@@ -25,6 +25,31 @@ bool RealtimeClock::lostPower() {
   return rtc.lostPower();
 }
 
+bool RealtimeClock::powerReallyLost() {
+  if (!_ready) return false;  // no RTC -> don't try to auto-write anything
+
+  // Sample the power-loss flag several times. Only trust a "power lost"
+  // result if every read agrees AND the time reads as invalid too. On a
+  // glitching bus one read might lie; requiring unanimous agreement plus an
+  // invalid time means a good clock is never overwritten by a transient fault.
+  const uint8_t kSamples = 5;
+  for (uint8_t i = 0; i < kSamples; i++) {
+    if (!rtc.lostPower()) return false;  // any "not lost" read clears it
+    delay(5);
+  }
+
+  // All reads said power was lost. Corroborate with the actual time: a truly
+  // uninitialised DS3231 reads an invalid/nonsense date. If the time is valid
+  // and in range, the flag is almost certainly a glitch, so keep the clock.
+  DateTime t = rtc.now();
+  if (t.isValid() && t.hour() <= 23 && t.minute() <= 59 && t.second() <= 59 &&
+      t.month() >= 1 && t.month() <= 12 && t.day() >= 1 && t.day() <= 31 &&
+      t.year() >= 2020) {
+    return false;
+  }
+  return true;
+}
+
 void RealtimeClock::setDateTime(uint16_t year, uint8_t month, uint8_t day,
                                 uint8_t hour, uint8_t minute, uint8_t second) {
   if (!_ready) return;

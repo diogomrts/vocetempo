@@ -54,6 +54,11 @@ struct Settings {
   // Audio.
   uint8_t volume = 18;  // 0..30
 
+  // When true, automatic announcements are suppressed (a mute icon shows on
+  // the clock face). Manual "speak the time" on a BACK tap still works.
+  // Toggled by holding the BACK button on the clock face.
+  bool muted = false;
+
   // Display / speech format.
   bool use24h = false;
 

@@ -29,8 +29,9 @@ bool Audio::begin() {
 }
 
 void Audio::setVolume(uint8_t volume) {
-  if (!_ready) return;
   if (volume > 30) volume = 30;
+  _volume = volume;  // remember it even if the module isn't ready yet
+  if (!_ready) return;
   dfplayer.volume(volume);
 }
 
@@ -49,6 +50,13 @@ void Audio::playIndexBlocking(uint16_t index, unsigned long timeoutMs) {
     dfplayer.readType();
     dfplayer.read();
   }
+
+  // Re-assert the configured volume right before playing. Clone modules often
+  // ignore a volume command issued too soon after their power-on reset and
+  // revert to full volume; re-sending it here guarantees the user's setting is
+  // always honoured.
+  dfplayer.volume(_volume);
+  delay(20);  // give the clone a moment to apply it before the play command
 
   dfplayer.playMp3Folder(index);
 

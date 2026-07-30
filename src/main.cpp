@@ -2,19 +2,21 @@
  * Vocetempo - a standalone talking bedside clock.
  *
  * -------------------------------------------------------------------------
- * STAGE 11: Settings menu + persistent storage.
- * -------------------------------------------------------------------------
- * The app is now a small state machine with two views:
- *   - Clock view: shows the time, speaks on demand, auto-announces.
- *   - Menu view : configure interval, quiet hours, volume, time, date, format.
+ * The app is a small state machine with two views:
+ *   - Clock view: shows the time, speaks on demand, auto-announces, and plays
+ *                 a playful panda reaction on the arrow buttons.
+ *   - Menu view : configure interval, quiet hours, volume, time, date, format,
+ *                 language.
  *
  * Controls (clock view):
- *   - BACK : speak the current time.
- *   - OK   : open the settings menu.
+ *   - BACK     : speak the current time.
+ *   - OK       : open the settings menu.
+ *   - UP/DOWN  : panda reaction animation (eye-candy).
  * Controls (menu view): UP/DOWN navigate (hold to repeat), OK select/confirm,
  *   BACK go back/exit.
  *
- * Settings persist in flash (NVS) and are reloaded at boot.
+ * Settings persist in flash (NVS) and are reloaded at boot. A panda-themed
+ * animated splash plays at startup.
  *
  * Wiring: see docs/WIRING.md.
  */
@@ -86,18 +88,26 @@ void setup() {
 
   Serial.println();
   Serial.println(F("========================================"));
-  Serial.println(F("  Vocetempo - Stage 11: settings menu"));
+  Serial.println(F("  Vocetempo - panda-themed talking clock"));
   Serial.println(F("========================================"));
 
   if (display.begin()) {
     Serial.println(F("OLED initialised OK."));
+    display.showBootSplash();  // panda-themed animated splash
   } else {
     Serial.println(F("ERROR: OLED not found."));
   }
 
   if (clock_.begin()) {
     Serial.println(F("DS3231 RTC initialised OK."));
-    if (clock_.lostPower()) clock_.setToCompileTime();
+    // Only auto-set the clock if power was *really* lost (debounced across
+    // several reads + corroborated by an invalid time). This prevents a
+    // glitching I2C bus from tricking us into overwriting a clock that is
+    // actually keeping good time. Deliberate time changes go through the menu.
+    if (clock_.powerReallyLost()) {
+      Serial.println(F("RTC power was lost; seeding from compile time."));
+      clock_.setToCompileTime();
+    }
   } else {
     Serial.println(F("ERROR: DS3231 RTC not found."));
   }
@@ -127,10 +137,82 @@ void setup() {
   esp_task_wdt_init(WDT_TIMEOUT_S, /*panic=*/true);
   esp_task_wdt_add(NULL);  // watch the current (loop) task
 
-  Serial.println(F("Ready. BACK speaks the time; OK opens the menu."));
+  Serial.println(F("Ready. BACK taps to speak, hold to mute; OK opens the "
+                   "menu; UP/DOWN pet the panda."));
   Serial.print(F("Soak test: watchdog "));
   Serial.print(WDT_TIMEOUT_S);
   Serial.println(F("s, heartbeat every 60s."));
+}
+
+// How long BACK must be held (ms) on the clock face to toggle mute.
+static const unsigned long MUTE_HOLD_MS = 800;
+// How long the interactive panda screen waits with no input before returning.
+static const unsigned long PANDA_IDLE_TIMEOUT_MS = 6000;
+
+// Interactive "pet the panda" screen. Stays up reacting to buttons: UP waves
+// the right paw, DOWN the left, OK a happy bounce; each pet adds a heart (max
+// 5). The panda blinks on its own while idle. Returns on BACK or after a few
+// seconds of no input. Blocking, but feeds the watchdog throughout.
+static void runPandaMode(bool startWaveRight) {
+  // A few rotating captions so repeated petting stays fun.
+  static const char* const kPetCaptions[] = {"Hi!", "Hehe", "Yay!", "Boop",
+                                              "Panda!"};
+  static const uint8_t kNumCaptions = 5;
+
+  uint8_t hearts = 1;
+  uint8_t capIdx = 0;
+  // Paw side matches the physical button that was pressed: UP -> left paw,
+  // DOWN -> right paw. `startWaveRight` is true when entered via UP; we invert
+  // it here so the waving paw lines up with the button's position.
+  Panda::Pose pose = startWaveRight ? Panda::Pose::WaveLeft
+                                    : Panda::Pose::WaveRight;
+
+  unsigned long lastInteract = millis();
+  unsigned long lastBlink = millis();
+
+  display.showPandaFrame(pose, hearts, kPetCaptions[capIdx]);
+
+  while (true) {
+    buttons.update();
+    esp_task_wdt_reset();
+
+    bool up = buttons.wasPressed(Button::Up);
+    bool down = buttons.wasPressed(Button::Down);
+    bool ok = buttons.wasPressed(Button::Ok);
+    bool back = buttons.wasPressed(Button::Back);
+
+    if (back) break;  // BACK leaves the panda screen
+
+    if (up || down || ok) {
+      lastInteract = millis();
+      if (hearts < 16) hearts++;  // matches Display's side-column heart layout
+      capIdx = (capIdx + 1) % kNumCaptions;
+      // UP -> left paw, DOWN -> right paw (matches physical button layout).
+      if (up) pose = Panda::Pose::WaveLeft;
+      else if (down) pose = Panda::Pose::WaveRight;
+      else pose = Panda::Pose::Happy;
+
+      // A quick two-step bounce so the reaction feels lively, not static.
+      display.showPandaFrame(pose, hearts, kPetCaptions[capIdx]);
+      delay(120);
+      display.showPandaFrame(Panda::Pose::Blink, hearts, kPetCaptions[capIdx]);
+      delay(90);
+      display.showPandaFrame(pose, hearts, kPetCaptions[capIdx]);
+      lastBlink = millis();
+    } else if (millis() - lastBlink > 2500) {
+      // Idle blink to keep the panda feeling alive.
+      lastBlink = millis();
+      display.showPandaFrame(Panda::Pose::Blink, hearts, "");
+      delay(120);
+      display.showPandaFrame(Panda::Pose::Happy, hearts, "");
+    }
+
+    if (millis() - lastInteract > PANDA_IDLE_TIMEOUT_MS) break;
+    delay(10);
+  }
+
+  lastSecond = 255;      // force a clock redraw when we return
+  esp_task_wdt_reset();
 }
 
 void loop() {
@@ -161,14 +243,56 @@ void loop() {
     return;
   }
 
-  // BACK speaks the current time; OK opens the settings menu.
+  // BACK: a short tap speaks the time; a long hold toggles mute. We track the
+  // press here and act either when the hold threshold is crossed (mute) or on
+  // release before that (speak). Booleans below are read once each - remember
+  // wasPressed() consumes the edge.
+  static bool backHolding = false;      // BACK is currently held down
+  static bool backHoldHandled = false;  // the hold already toggled mute
+  static unsigned long backPressStart = 0;
+
   if (buttons.wasPressed(Button::Back)) {
-    speakNow();
+    backHolding = true;
+    backHoldHandled = false;
+    backPressStart = millis();
   }
+  if (backHolding) {
+    if (buttons.isDown(Button::Back)) {
+      // Still held: has it crossed the mute-toggle threshold?
+      if (!backHoldHandled && millis() - backPressStart >= MUTE_HOLD_MS) {
+        backHoldHandled = true;
+        settings.muted = !settings.muted;
+        settings.save();
+        Serial.print(F("Mute toggled -> "));
+        Serial.println(settings.muted ? F("MUTED") : F("unmuted"));
+        // On-theme confirmation: the panda covers its ears (blink) when muted,
+        // or waves happily when unmuted.
+        display.showPandaFrame(
+            settings.muted ? Panda::Pose::Blink : Panda::Pose::Happy, 0,
+            settings.muted ? "Muted" : "Sound on");
+        delay(900);
+        lastSecond = 255;  // redraw clock (with/without mute icon) next tick
+        esp_task_wdt_reset();
+      }
+    } else {
+      // Released. If the hold never toggled mute, treat it as a tap -> speak.
+      backHolding = false;
+      if (!backHoldHandled) speakNow();
+    }
+  }
+
   if (buttons.wasPressed(Button::Ok)) {
     menu.open();
     delay(5);
     return;  // start the menu cleanly next loop (no leaked events)
+  }
+
+  // UP / DOWN on the clock face open the interactive "pet the panda" screen.
+  // Read each edge once into a local first: wasPressed() consumes the edge.
+  bool upPressed = buttons.wasPressed(Button::Up);
+  bool downPressed = buttons.wasPressed(Button::Down);
+  if (upPressed || downPressed) {
+    runPandaMode(/*startWaveRight=*/upPressed);
   }
 
   if (audioReady) audio.pollStatus();
@@ -192,8 +316,24 @@ void loop() {
     badReads = 0;
   }
 
-  // Automatic announcements at the configured interval (skipped in quiet hrs).
-  if (haveTime && audioReady &&
+  // Update the clock face FIRST, before any (blocking) announcement. Otherwise
+  // speakTime() would hold the loop for the whole 5-10s phrase and the OLED
+  // would only catch up to the new minute after the voice finished - so the
+  // voice appeared to "run ahead" of the screen by several seconds.
+  if (haveTime && second != lastSecond) {
+    lastSecond = second;
+    bool quiet = announcer.isQuietNow(hour, minute);
+    display.showClock(clock_.weekdayString(), clock_.timeString(false),
+                      clock_.dateString(), quiet, settings.muted);
+    digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
+  }
+
+  // Automatic announcements at the configured interval (skipped in quiet hours
+  // and when muted). When muted we short-circuit before shouldAnnounce(); this
+  // is safe because each boundary is a distinct (hour, minute), so unmuting
+  // later simply resumes at the next boundary with no double-fire. This runs
+  // AFTER the display update above so the screen already shows the new time.
+  if (haveTime && audioReady && !settings.muted &&
       announcer.shouldAnnounce(hour, minute, second)) {
     Serial.print(F("Auto-announcing: "));
     Serial.print(hour);
@@ -201,14 +341,6 @@ void loop() {
     Serial.println(minute);
     audio.speakTime(hour, minute, settings.use24h,
                     languageOffset(settings.language));
-  }
-
-  if (haveTime && second != lastSecond) {
-    lastSecond = second;
-    bool quiet = announcer.isQuietNow(hour, minute);
-    display.showClock(clock_.weekdayString(), clock_.timeString(false),
-                      clock_.dateString(), quiet);
-    digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
   }
 
   // Stage 12: heartbeat - print uptime, free heap, and the RTC time so a soak

@@ -65,6 +65,10 @@ class Audio {
  private:
   bool _ready = false;
   InterruptCheck _interruptCheck = nullptr;
+  // Last volume requested via setVolume(). Re-asserted before each spoken
+  // phrase because these DFPlayer clones often drop a volume command sent too
+  // soon after a reset, defaulting back to full volume otherwise.
+  uint8_t _volume = 18;
 };
 
 #endif  // VOCETEMPO_AUDIO_H

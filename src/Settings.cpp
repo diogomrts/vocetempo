@@ -19,6 +19,7 @@ void Settings::load() {
   quietEndM = prefs.getUChar("qEndM", quietEndM);
 
   volume = prefs.getUChar("volume", volume);
+  muted = prefs.getBool("muted", muted);
   use24h = prefs.getBool("use24h", use24h);
   language = static_cast<Language>(
       prefs.getUChar("lang", static_cast<uint8_t>(language)));
@@ -39,6 +40,7 @@ void Settings::save() {
   prefs.putUChar("qEndM", quietEndM);
 
   prefs.putUChar("volume", volume);
+  prefs.putBool("muted", muted);
   prefs.putBool("use24h", use24h);
   prefs.putUChar("lang", static_cast<uint8_t>(language));
 
