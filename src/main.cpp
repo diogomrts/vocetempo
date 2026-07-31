@@ -31,6 +31,7 @@
 #include "Menu.h"
 #include "RealtimeClock.h"
 #include "Settings.h"
+#include "Localization.h"
 
 // Stage 12: soak-test aids.
 // Watchdog: if the loop ever hangs longer than this, the chip auto-resets.
@@ -269,7 +270,7 @@ void loop() {
         // or waves happily when unmuted.
         display.showPandaFrame(
             settings.muted ? Panda::Pose::Blink : Panda::Pose::Happy, 0,
-            settings.muted ? "Muted" : "Sound on");
+            tr(settings.muted ? Str::Muted : Str::SoundOn, settings.language));
         delay(900);
         lastSecond = 255;  // redraw clock (with/without mute icon) next tick
         esp_task_wdt_reset();
@@ -323,8 +324,11 @@ void loop() {
   if (haveTime && second != lastSecond) {
     lastSecond = second;
     bool quiet = announcer.isQuietNow(hour, minute);
-    display.showClock(clock_.weekdayString(), clock_.timeString(false),
-                      clock_.dateString(), quiet, settings.muted);
+    // Weekday name is localized to the selected language (audio + on-screen
+    // text stay in sync). We pass the raw day-of-week we already read.
+    display.showClock(weekdayName(weekday, settings.language),
+                      clock_.timeString(false), clock_.dateString(), quiet,
+                      settings.muted);
     digitalWrite(LED_PIN, second % 2 ? HIGH : LOW);
   }
 

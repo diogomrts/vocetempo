@@ -5,11 +5,6 @@
 // The RTClib driver instance, kept file-local.
 static RTC_DS3231 rtc;
 
-// Full weekday names indexed by DateTime::dayOfTheWeek() (0 = Sunday).
-static const char* const kWeekdays[] = {
-    "Sunday", "Monday", "Tuesday", "Wednesday",
-    "Thursday", "Friday", "Saturday"};
-
 bool RealtimeClock::begin() {
   // Wire.begin() is expected to have been called already (Display does it).
   if (!rtc.begin()) {
@@ -109,10 +104,4 @@ String RealtimeClock::dateString() {
   return String(buf);
 }
 
-String RealtimeClock::weekdayString() {
-  if (!_ready) return String("---");
-  DateTime t = rtc.now();
-  uint8_t dow = t.dayOfTheWeek();
-  if (dow > 6) return String("---");
-  return String(kWeekdays[dow]);
-}
+

@@ -1,26 +1,30 @@
 #include "Menu.h"
 
-// Labels for the main menu list. Order maps to onMainSelect().
-static const char* kMainItems[] = {
-    "Announce",   // 0
-    "Quiet start",// 1
-    "Quiet end",  // 2
-    "Volume",     // 3
-    "Set time",   // 4
-    "Set date",   // 5
-    "12/24 hour", // 6
-    "Language",   // 7
-    "Exit",       // 8
+#include "Localization.h"
+
+// The Str id for each main-menu row, in display order. The row order maps to
+// handleMain()'s switch; the actual text is looked up per-language via tr().
+static const Str kMainItemIds[] = {
+    Str::Announce,    // 0
+    Str::QuietStart,  // 1
+    Str::QuietEnd,    // 2
+    Str::Volume,      // 3
+    Str::SetTime,     // 4
+    Str::SetDate,     // 5
+    Str::Format,      // 6
+    Str::Language,    // 7
+    Str::Exit,        // 8
 };
 static const uint8_t kMainCount = 9;
 
-static const char* intervalName(AnnounceInterval iv) {
+// Localized name for an announcement interval.
+static const char* intervalName(AnnounceInterval iv, Language lang) {
   switch (iv) {
-    case AnnounceInterval::Off: return "Off";
-    case AnnounceInterval::Hourly: return "Hourly";
-    case AnnounceInterval::Half: return "30 min";
-    case AnnounceInterval::Quarter: return "15 min";
-    default: return "Off";
+    case AnnounceInterval::Off: return tr(Str::IntervalOff, lang);
+    case AnnounceInterval::Hourly: return tr(Str::IntervalHourly, lang);
+    case AnnounceInterval::Half: return tr(Str::IntervalHalf, lang);
+    case AnnounceInterval::Quarter: return tr(Str::IntervalQuarter, lang);
+    default: return tr(Str::IntervalOff, lang);
   }
 }
 
@@ -74,51 +78,63 @@ void Menu::applyAndSave() {
 void Menu::render() {
   if (!_active) return;
   char buf[24];
+  Language lang = _settings.language;  // all labels follow the current language
 
   switch (_screen) {
     case Screen::Main: {
       String items[kMainCount];
-      for (uint8_t i = 0; i < kMainCount; i++) items[i] = kMainItems[i];
-      _display.showMenu("Settings", items, kMainCount, _mainSel);
+      for (uint8_t i = 0; i < kMainCount; i++)
+        items[i] = tr(kMainItemIds[i], lang);
+      _display.showMenu(tr(Str::MenuTitle, lang), items, kMainCount, _mainSel);
       break;
     }
     case Screen::EditInterval:
-      _display.showEditValue("Announce", intervalName(_settings.interval),
-                             "UP/DN  OK save");
+      _display.showEditValue(tr(Str::Announce, lang),
+                             intervalName(_settings.interval, lang),
+                             tr(Str::HintSave, lang));
       break;
     case Screen::EditVolume:
       snprintf(buf, sizeof(buf), "%u", _settings.volume);
-      _display.showEditValue("Volume", buf, "UP/DN  OK save");
+      _display.showEditValue(tr(Str::Volume, lang), buf, tr(Str::HintSave, lang));
       break;
     case Screen::EditFormat:
-      _display.showEditValue("Format", _settings.use24h ? "24 hour" : "12 hour",
-                             "UP/DN  OK save");
+      _display.showEditValue(
+          tr(Str::Format, lang),
+          tr(_settings.use24h ? Str::Format24h : Str::Format12h, lang),
+          tr(Str::HintSave, lang));
       break;
     case Screen::EditLanguage:
-      _display.showEditValue("Language", languageName(_settings.language),
-                             "UP/DN  OK save");
+      // The language names stay in their own tongue (English/Portugues/Espanol)
+      // so you can always recognise your language; the title is localized.
+      _display.showEditValue(tr(Str::Language, lang),
+                             languageName(_settings.language),
+                             tr(Str::HintSave, lang));
       break;
     case Screen::EditQuietStart:
     case Screen::EditQuietEnd: {
       snprintf(buf, sizeof(buf), "%02u:%02u", _editH, _editM);
-      const char* title =
-          (_screen == Screen::EditQuietStart) ? "Quiet start" : "Quiet end";
-      const char* hint = (_editField == 0) ? "UP/DN hour OK>" : "UP/DN min OK save";
+      const char* title = tr(
+          (_screen == Screen::EditQuietStart) ? Str::QuietStart : Str::QuietEnd,
+          lang);
+      const char* hint =
+          tr((_editField == 0) ? Str::HintHour : Str::HintMin, lang);
       _display.showEditValue(title, buf, hint);
       break;
     }
     case Screen::EditTime: {
       snprintf(buf, sizeof(buf), "%02u:%02u", _editH, _editM);
-      const char* hint = (_editField == 0) ? "UP/DN hour OK>" : "UP/DN min OK save";
-      _display.showEditValue("Set time", buf, hint);
+      const char* hint =
+          tr((_editField == 0) ? Str::HintHour : Str::HintMin, lang);
+      _display.showEditValue(tr(Str::SetTime, lang), buf, hint);
       break;
     }
     case Screen::EditDate: {
       snprintf(buf, sizeof(buf), "%04u-%02u-%02u", _editYear, _editMonth, _editDay);
-      const char* hint = _editField == 0 ? "UP/DN year OK>"
-                        : _editField == 1 ? "UP/DN mon OK>"
-                                          : "UP/DN day OK save";
-      _display.showEditValue("Set date", buf, hint);
+      const char* hint = tr(_editField == 0   ? Str::HintYear
+                            : _editField == 1 ? Str::HintMon
+                                              : Str::HintDay,
+                            lang);
+      _display.showEditValue(tr(Str::SetDate, lang), buf, hint);
       break;
     }
   }

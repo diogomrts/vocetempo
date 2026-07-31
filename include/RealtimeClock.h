@@ -45,7 +45,8 @@ class RealtimeClock {
   // Convenience formatters for the UI.
   String timeString(bool includeSeconds = false);  // "14:07" or "14:07:32"
   String dateString();                              // "2026-07-28"
-  String weekdayString();                           // "Tuesday"
+  // (Weekday names are localized via weekdayName() in Localization.h, called
+  // with the raw day-of-week, so there is no weekdayString() here.)
 
  private:
   bool _ready = false;
