@@ -94,15 +94,18 @@ module magnet_pockets() {
 // Give a small margin from the top and a gap between the two devices.
 // ---------------------------------------------------------------------------
 front_y      = -D/2;                 // outer plane of the front wall
-top_margin   = 5;                    // from cage top down to OLED PCB top edge
-gap_devices  = 4;                    // clear gap between OLED PCB and joystick PCB
 
-// OLED PCB spans [oled_top .. oled_top - oled_pcb_h]; centre at oled_cz.
-oled_top     = H - top_margin;
-oled_cz      = oled_top - oled_pcb_h/2;
-// Joystick PCB directly below, centred at joy_cz.
-joy_top      = oled_top - oled_pcb_h - gap_devices;
-joy_cz       = joy_top - joy_pcb_h/2;
+// OLED and joystick CENTRES are set 28mm apart to match the panda belly (the
+// belly can't fit the full stacked-PCB spacing). The joystick PCB overlaps
+// behind the OLED PCB's lower dead-space (OLED lit area is only 28mm of the
+// 46.6mm board, sitting +3.1 above centre - the lower ~17mm is dead). The two
+// PCBs mount at DIFFERENT depths so they can overlap in Z without touching:
+// OLED on short front standoffs, joystick deeper on its own taller standoffs.
+// Centres chosen so that, with the cage base at panda Z=cage_z0 (12), the
+// devices land at panda Z=58 (OLED) and Z=30 (joystick) - verified on the belly.
+dev_sep      = 28;                   // OLED centre to joystick centre (matches panda)
+oled_cz      = 46;                   // -> panda Z 58 when cage_z0=12
+joy_cz       = oled_cz - dev_sep;    // = 18 -> panda Z 30
 
 // ---------------------------------------------------------------------------
 // OLED: window through the front wall (at the LIT area, offset +3.1 up), plus
@@ -124,19 +127,22 @@ module oled_window_cut() {
 
 // A standoff post standing off the inside of the front wall, pointing +Y into
 // the cavity. Height lifts the PCB clear of the wall; screw pilot up the axis.
-so_h = 5;   // standoff height off the wall (clears bezel/parts)
-embed = 1;  // how far a post sinks INTO its wall so it fuses (no floating solids)
-module front_standoff() {
-    // start 'embed' inside the wall so the boss truly merges with it
+// OLED sits on SHORT standoffs; joystick on TALLER ones so the two PCBs, which
+// overlap in Z (28mm centres < stacked board heights), sit at different depths
+// and never touch.
+so_h_oled = 4;    // OLED standoff height off the wall
+so_h_joy  = 16;   // joystick standoff: deeper, so its PCB clears the OLED PCB
+embed = 1;        // how far a post sinks INTO its wall so it fuses
+module front_standoff(h) {
     translate([0, front_y + t - embed, 0])
         rotate([-90, 0, 0])          // cylinder axis -> +Y
-            screw_boss(so_h + embed);
+            screw_boss(h + embed);
 }
 
 module oled_standoffs() {
     for (sx=[-1,1], sz=[-1,1])
         translate([sx*oled_hole_dx/2, 0, oled_cz + sz*oled_hole_dy/2])
-            front_standoff();
+            front_standoff(so_h_oled);
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +171,7 @@ module joystick_cone_cut() {
 module joystick_standoffs() {
     for (sx=[-1,1], sz=[-1,1])
         translate([sx*joy_hole_dx/2, 0, joy_cz + sz*joy_hole_dy/2])
-            front_standoff();
+            front_standoff(so_h_joy);
 }
 
 // ---------------------------------------------------------------------------

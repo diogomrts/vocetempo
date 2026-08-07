@@ -1,0 +1,110 @@
+// ============================================================================
+// Vocetempo - the PANDA BODY (hollowed host for the electronics cage).
+//
+// Imports the original sculpt (panda/panda_original.stl - NEVER edited in
+// place), scales it to ~160mm tall, hollows the interior, and cuts the
+// functional openings. The sculpt was clearly designed for this: it already
+// has an embossed screen rectangle and a round knob on the belly, and a big
+// round head - we cut real openings through those features.
+//
+// Coordinate frame (after scale): feet on Z=0, upright. The BELLY/FACE is +Y
+// (it bulges to +Y; the back at -Y is smooth). +X right.
+//
+// The electronics cage (cage.scad) enters from the BASE and its front face sits
+// just behind the belly. This file only shapes the BODY; cage.scad is separate.
+// ============================================================================
+
+include <dimensions.scad>
+include <helpers.scad>
+
+// ---- Import + scale --------------------------------------------------------
+// STL is in normalized units (~0.96 tall); scale to panda_h mm.
+panda_stl = "panda/panda_original.stl";
+
+module panda_raw() {
+    scale(panda_scale) import(panda_stl, convexity = 10);
+}
+
+// ---- Opening placements (belly is +Y) --------------------------------------
+// Tuned against renders to line up with the sculpted screen + knob.
+// The belly leans back ~16 deg and is curved; cut solids extend well past the
+// surface so they punch cleanly through.
+belly_face_y   = 63;      // approx front-Y of the belly at the screen centre
+screen_cz      = 64;      // OLED window centre height (the embossed screen)
+knob_cz        = 49;      // joystick centre height (the round knob)
+cut_depth      = 60;      // how far a cut solid reaches back from the surface
+
+// OLED window: cut the lit-area rectangle through the belly. The cut solid
+// starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
+module panda_oled_cut() {
+    translate([oled_active_dx, belly_face_y + 10, screen_cz + oled_active_dy])
+        rotate([-90, 0, 0])                 // extrude -> -Y (into the body)
+            linear_extrude(height = cut_depth)
+                offset(r = 2)
+                    square([oled_active_w + fit_gap, oled_active_h + fit_gap],
+                           center = true);
+}
+
+// Joystick opening: a cone that flares OUT at the belly surface (big) and
+// narrows going in (-Y), so the stick can tilt. Cone starts outside the belly.
+module panda_joystick_cut() {
+    r_in  = joy_flange_d/2 + fit_gap;
+    r_out = r_in + tan(joy_throw_a) * joy_flange_z + 3;
+    translate([0, belly_face_y + 10, knob_cz])
+        rotate([90, 0, 0])                 // cone axis -> -Y; r1 at belly, r2 deep
+            cylinder(h = cut_depth, r1 = r_out, r2 = r_in);
+}
+
+// Speaker sound path: a bore up the NECK from the body cavity into the head, so
+// sound reaches the head resonator. Vent holes in the head let it out.
+neck_z = 108;             // approx neck height where body meets head
+module panda_neck_bore() {
+    translate([0, 8, neck_z])
+        cylinder(h = 40, d = 34, center = true);   // generous throat
+}
+
+// Head vents: a few small holes low on the face/chin so head sound escapes.
+module panda_head_vents() {
+    for (a = [-30, -10, 10, 30])
+        rotate([0, 0, 0])
+        translate([a*0.9, belly_face_y + 2, 118])
+            rotate([90,0,0]) cylinder(h = 20, d = 3);
+}
+
+// ---- Hollowing -------------------------------------------------------------
+// The body only needs to be hollow WHERE THE CAGE SITS - not a uniform thin
+// shell (scaling the mesh down breaks thin features like the ears). So the
+// cavity is a rounded prism sized to the cage + wiring clearance, running from
+// the base up into the chest. The head stays mostly solid except the neck bore.
+cav_clear = 3;            // clearance around the cage inside the cavity
+module panda_cavity() {
+    cw = cage_w + 2*cav_clear;
+    cd = cage_d + 2*cav_clear;
+    ch = cage_h + 6;      // a little headroom above the cage
+    translate([0, 2, cage_z0 + ch/2 - 2])
+        rounded_box(cw, cd, ch, r = 4);
+}
+
+// ---- Base hatch: open the underside so the cage slides in ------------------
+module panda_base_hatch() {
+    // rectangular opening in the base matching the cage footprint + clearance
+    translate([0, 0, -eps])
+        linear_extrude(height = cage_z0 + 2)
+            offset(r = 2)
+                square([cage_w + 2, cage_d + 2], center = true);
+}
+eps = 0.01;
+
+// ---- Assembly --------------------------------------------------------------
+module panda_body() {
+    difference() {
+        panda_raw();
+        panda_cavity();
+        panda_oled_cut();
+        panda_joystick_cut();
+        panda_neck_bore();
+        panda_base_hatch();
+    }
+}
+
+panda_body();

@@ -213,8 +213,9 @@ panda_w         = 115;    // approx overall width at the base
 // The cage: front face (OLED over joystick) faces the belly; slides in from the
 // BASE; speaker on top fires up the neck into the head cavity (~Z128+).
 cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
-cage_h          = 96;     // outer height (Z) - OLED 46.6 + joystick 32.3 + gaps
-                          //   + margin below the joystick cone & base rim
+cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
+                          //   (devices overlap in Z at different depths to fit
+                          //   the panda belly); OLED top ~69 + margin
 cage_d          = 38;     // outer depth  (Y) - OLED header + wiring + board pins
 cage_z0         = 12;     // cage base sits at this Z (above the feet, below waist)
 
