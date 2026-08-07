@@ -19,6 +19,9 @@ include <helpers.scad>
 
 // ---- Import + scale --------------------------------------------------------
 // STL is in normalized units (~0.96 tall); scale to panda_h mm.
+// Full-res original mesh (500k tris). Requires OpenSCAD's MANIFOLD backend
+// (--backend=Manifold, OpenSCAD 2023+); the old CGAL backend can't boolean this
+// in reasonable time. No decimation - full detail preserved.
 panda_stl = "panda/panda_original.stl";
 
 module panda_raw() {
@@ -26,33 +29,38 @@ module panda_raw() {
 }
 
 // ---- Opening placements (belly is +Y) --------------------------------------
-// Tuned against renders to line up with the sculpted screen + knob.
-// The belly leans back ~16 deg and is curved; cut solids extend well past the
-// surface so they punch cleanly through.
-belly_face_y   = 63;      // approx front-Y of the belly at the screen centre
-screen_cz      = 64;      // OLED window centre height (the embossed screen)
-knob_cz        = 49;      // joystick centre height (the round knob)
-cut_depth      = 60;      // how far a cut solid reaches back from the surface
+// Sculpt has screen ~Z32 and knob ~Z20 (only ~12mm apart). The real OLED window
+// (28mm tall) + joystick can't be that close, but a SLIM PRINTED CAP shrinks the
+// joystick opening to ~20mm, letting spacing tighten to 25mm. Centred on the
+// belly: OLED on the screen emboss, joystick on/near the knob.
+// Cut solids START OUTSIDE the belly (+Y) and extrude back (-Y) through the body.
+belly_face_y   = 72;      // outside the belly (peak ~67) so cuts punch through
+screen_cz      = 38;      // OLED window centre (on the sculpted screen ~Z32-38)
+knob_cz        = 13;      // joystick centre, 25mm below (near the knob/lower belly)
+cut_depth      = 80;      // how far a cut solid reaches back from the surface
 
 // OLED window: cut the lit-area rectangle through the belly. The cut solid
 // starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
 module panda_oled_cut() {
-    translate([oled_active_dx, belly_face_y + 10, screen_cz + oled_active_dy])
-        rotate([-90, 0, 0])                 // extrude -> -Y (into the body)
+    // rotate([90,0,0]) makes linear_extrude (+Z) point in -Y, i.e. INTO the body,
+    // starting just outside the belly at +Y=belly_face_y.
+    translate([oled_active_dx, belly_face_y, screen_cz + oled_active_dy])
+        rotate([90, 0, 0])                  // extrude -> -Y (into the body)
             linear_extrude(height = cut_depth)
                 offset(r = 2)
                     square([oled_active_w + fit_gap, oled_active_h + fit_gap],
                            center = true);
 }
 
-// Joystick opening: a cone that flares OUT at the belly surface (big) and
-// narrows going in (-Y), so the stick can tilt. Cone starts outside the belly.
+// Joystick opening: sized to the SLIM PRINTED CAP (joy_panel_open ~20mm), not
+// the stock 26mm cap. A gentle cone (flare out a touch toward the belly) clears
+// the small d-pad swing. Much tidier than the stock-cap cone.
 module panda_joystick_cut() {
-    r_in  = joy_flange_d/2 + fit_gap;
-    r_out = r_in + tan(joy_throw_a) * joy_flange_z + 3;
-    translate([0, belly_face_y + 10, knob_cz])
-        rotate([90, 0, 0])                 // cone axis -> -Y; r1 at belly, r2 deep
-            cylinder(h = cut_depth, r1 = r_out, r2 = r_in);
+    r_belly = joy_panel_open/2 + fit_gap;
+    r_deep  = joy_panel_open/2;
+    translate([0, belly_face_y, knob_cz])
+        rotate([90, 0, 0])                 // cone axis -> -Y
+            cylinder(h = cut_depth, r1 = r_belly, r2 = r_deep);
 }
 
 // Speaker sound path: a bore up the NECK from the body cavity into the head, so

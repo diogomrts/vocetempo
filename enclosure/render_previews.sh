@@ -36,4 +36,11 @@ render cage_back.png   "0,0,48,62,0,205,430" cage.scad
   --camera=0,48,300,0,0,0,0 --projection=orthogonal --viewall --autocenter \
   --colorscheme="$SCHEME" layout_backwall.scad
 
+# The hollowed panda body. NEEDS the Manifold backend (the 500k-tri mesh is far
+# too slow for CGAL); requires OpenSCAD 2023+.
+"$SCAD" --backend=Manifold -o previews/panda_cut_iso.png --imgsize=700,900 \
+  --camera=0,0,0,72,0,8,0 --viewall --autocenter --projection=perspective \
+  --colorscheme="$SCHEME" panda.scad
+
 echo "Done. See enclosure/previews/*.png"
+echo "Panda body STL: openscad --backend=Manifold -o stl/panda_body.stl panda.scad"

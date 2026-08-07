@@ -144,6 +144,14 @@ joy_cap_z       = 29.43;  // height of cap top above the PCB [measured]
 // = ~23 deg half-angle. NOTE: the panel cone must clear the 26mm flange at
 // z=12 at this tilt, not just the cap - compute the opening from both.
 joy_throw_a     = 23;     // stick tilt half-angle [measured, ~12.5mm cap sweep]
+// DECISION: the stock 26mm cap forces a ~32mm panel opening (nearly screen-sized
+// and ugly). We PRINT A SLIM REPLACEMENT CAP instead. Used as a d-pad, the stick
+// only needs ~11 deg of travel, so a small cap + tiny swing is plenty.
+joy_slim_cap_d  = 16.0;   // printed replacement thumb-cap diameter
+joy_use_tilt    = 11;     // effective tilt clearance in the panel (d-pad use)
+joy_panel_open  = 20.0;   // resulting panel opening dia (slim cap + swing + clr)
+joy_shaft_d     = 4.0;    // stock stick shaft dia under the cap [TODO measure]
+joy_shaft_len   = 6.0;    // shaft length available for the cap socket [TODO measure]
 // 4 mounting holes forming a near-square, offset toward the pin-header edge (so
 // they look uneven per-corner but are a clean rectangle). Confirmed by caliper.
 joy_hole_dx     = 19.85;  // horizontal centre-to-centre [measured]
