@@ -127,11 +127,13 @@ module oled_window_cut() {
 
 // A standoff post standing off the inside of the front wall, pointing +Y into
 // the cavity. Height lifts the PCB clear of the wall; screw pilot up the axis.
-// OLED sits on SHORT standoffs; joystick on TALLER ones so the two PCBs, which
-// overlap in Z (28mm centres < stacked board heights), sit at different depths
-// and never touch.
+// OLED and joystick both sit on SHALLOW standoffs. Although their PCBs overlap
+// slightly in Z (28mm centres), their COMPONENTS don't share space: the OLED's
+// header runs along its edges (X~+-33) while the joystick is central (X~+-13)
+// and 10mm lower, so a modest standoff keeps everything clear - no deep offset
+// needed (which had pushed joystick pins into the back-wall boards).
 so_h_oled = 4;    // OLED standoff height off the wall
-so_h_joy  = 16;   // joystick standoff: deeper, so its PCB clears the OLED PCB
+so_h_joy  = 6;    // joystick standoff (slightly taller for its gimbal clearance)
 embed = 1;        // how far a post sinks INTO its wall so it fuses
 module front_standoff(h) {
     translate([0, front_y + t - embed, 0])
@@ -261,17 +263,19 @@ module retention_bosses(cx, cz, span, vertical=false) {
 // keep-out band; RTC upper-right; DFPlayer far-right-low, clear of the joystick
 // X band. USB-C (ESP32) and SD (DFPlayer) edges both point DOWN to the base.
 
-// ---- ESP32: portrait, LEFT, high (above joystick), USB-C down --------------
+// ---- ESP32: portrait, LEFT full-height, USB-C down -------------------------
 // board 53.2 tall (Z) x 28.4 wide (X). USB-C at the bottom edge -> exits base.
+// In the shorter (78mm) cage it spans most of the left wall, clear of the
+// right-side RTC/DFPlayer and (in Y) behind the shallow joystick.
 esp_cx = -W/2 + t + 2 + esp_h/2;     // hug the left inner wall  (~ -19.3)
-esp_cz = 66.8;                       // high enough to clear the joystick pins
+esp_cz = H/2;                        // centred vertically on the left
 module esp32_mount() {
     retention_bosses(esp_cx, esp_cz, esp_w + 8, vertical=true);
 }
 
-// ---- RTC: upper-right, 3 measured holes ------------------------------------
-rtc_cx = W/2 - t - 2 - rtc_w/2;      // hug the right inner wall, up high
-rtc_cz = H - 11 - rtc_h/2;
+// ---- RTC: top-right, 3 measured holes --------------------------------------
+rtc_cx = W/2 - t - 2 - rtc_w/2;      // hug the right inner wall
+rtc_cz = H - 8 - rtc_h/2;
 module rtc_mount() {
     holes = [[rtc_hole1_x, rtc_hole1_y],
              [rtc_hole2_x, rtc_hole2_y],
@@ -281,9 +285,9 @@ module rtc_mount() {
             back_boss();
 }
 
-// ---- DFPlayer: far-right, low, SD slot down --------------------------------
-dfp_cx = W/2 - t - 1 - dfp_w/2;      // pushed right to clear joystick X band
-dfp_cz = t + 4 + dfp_h/2;
+// ---- DFPlayer: bottom-right, SD slot down ----------------------------------
+dfp_cx = W/2 - t - 2 - dfp_w/2;      // right wall, below the RTC
+dfp_cz = t + 6 + dfp_h/2;
 module dfp_mount() {
     retention_bosses(dfp_cx, dfp_cz, dfp_w + 8, vertical=false);
 }

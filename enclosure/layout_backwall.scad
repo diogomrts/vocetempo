@@ -21,9 +21,9 @@ IWmin = -W/2 + t;  IWmax = W/2 - t;   // usable X
 IHmin = 0 + t;     IHmax = H;         // usable Z (open base at 0)
 
 // --- board centres (mirror of cage.scad) ---
-esp_cx = -W/2 + t + 2 + esp_h/2;   esp_cz = 66.8;              // portrait, high
-rtc_cx = W/2 - t - 2 - rtc_w/2;    rtc_cz = H - 11 - rtc_h/2;
-dfp_cx = W/2 - t - 1 - dfp_w/2;    dfp_cz = t + 4 + dfp_h/2;
+esp_cx = -W/2 + t + 2 + esp_h/2;   esp_cz = H/2;               // portrait, centred
+rtc_cx = W/2 - t - 2 - rtc_w/2;    rtc_cz = H - 8 - rtc_h/2;
+dfp_cx = W/2 - t - 2 - dfp_w/2;    dfp_cz = t + 6 + dfp_h/2;
 
 module rect(cx, cz, sx, sz) {
     translate([cx, cz]) square([sx, sz], center=true);
@@ -62,8 +62,6 @@ color("orange") rect(dfp_cx, dfp_cz, dfp_w, dfp_h);
 color("red") { boss(dfp_cx - (dfp_w+8)/2, dfp_cz); boss(dfp_cx + (dfp_w+8)/2, dfp_cz); }
 
 // Front-device keep-outs (where they sit in X/Z, for reference)
-top_margin=5; gap_devices=4;
-oled_top=H-top_margin; oled_cz=oled_top-oled_pcb_h/2;
-joy_top=oled_top-oled_pcb_h-gap_devices; joy_cz=joy_top-joy_pcb_h/2;
+dev_sep=28; oled_cz=46; joy_cz=oled_cz-dev_sep;
 color([1,1,0,0.25]) rect(0, oled_cz, oled_pcb_w, oled_pcb_h);   // OLED PCB shadow
 color([1,1,0,0.25]) rect(0, joy_cz, joy_pcb_w, joy_pcb_h);      // joystick PCB shadow
