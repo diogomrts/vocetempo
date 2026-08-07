@@ -65,20 +65,38 @@ module panda_joystick_cut() {
             cylinder(h = cut_depth, r1 = r_belly, r2 = r_deep);
 }
 
-// Speaker sound path: a bore up the NECK from the body cavity into the head, so
-// sound reaches the head resonator. Vent holes in the head let it out.
-neck_z = 108;             // approx neck height where body meets head
+// Speaker sound path: a CHIMNEY rising from the cavity top, through the neck, into
+// the head resonator. The speaker sits on the cage TOP (panda Z ~cage_z0+cage_h=80)
+// firing UP; this channel carries the sound past the neck (where the wide cavity had
+// to stop at Z64 for armpit clearance) into the hollow head.
+//
+// CRITICAL: the OLD panda_neck_bore (a 34mm cyl at Z88..128) did NOT reach down to
+// the cavity (Z64) or the speaker (Z80) - an 8-16mm plug of solid body blocked the
+// sound entirely (confirmed in a section render). The chimney below OVERLAPS the
+// cavity (starts at sp_z0=55, below cav_z_hi=64) so the void is continuous, and
+// rises to sp_z1=118 into the head. Verified connected + breach-free by render.
+// Centred at Y=sp_cy (the neck's solid mid-Y) and kept narrow enough (48x34) to stay
+// inside the neck without breaching the leaning chest/chin.
+sp_cy  = 6;               // chimney Y centre (neck solid core mid-Y)
+sp_hw  = 24;              // chimney half-width (X) -> 48 wide (> grille 37.35)
+sp_dep = 17;             // chimney half-depth (Y) -> 34 deep (> grille 26.80)
+sp_z0  = 55;              // start BELOW the cavity top (overlap -> continuous void)
+sp_z1  = 118;             // top, up inside the hollow head
 module panda_neck_bore() {
-    translate([0, 8, neck_z])
-        cylinder(h = 40, d = 34, center = true);   // generous throat
+    translate([0, sp_cy, sp_z0])
+        linear_extrude(sp_z1 - sp_z0)
+            offset(r = 4) square([2*sp_hw - 8, 2*sp_dep - 8], center = true);
 }
 
-// Head vents: a few small holes low on the face/chin so head sound escapes.
+// Head vents: small holes so the head-chamber sound escapes out the FACE. Aimed at
+// the chin/lower-face area (below the nose). The head interior top is ~Z118 (chimney
+// top); vents sit around Z108-116 on the face front, angled -Y->out. [UNVERIFIED
+// against the exact face surface - tune once the chimney is confirmed.]
+head_vent_z = 112;
 module panda_head_vents() {
-    for (a = [-30, -10, 10, 30])
-        rotate([0, 0, 0])
-        translate([a*0.9, belly_face_y + 2, 118])
-            rotate([90,0,0]) cylinder(h = 20, d = 3);
+    for (a = [-24, -8, 8, 24])
+        translate([a, 40, head_vent_z])
+            rotate([90, 0, 0]) cylinder(h = 60, d = 3.2);
 }
 
 // ---- Hollowing -------------------------------------------------------------
