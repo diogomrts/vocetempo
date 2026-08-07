@@ -11,11 +11,13 @@ static const Str kMainItemIds[] = {
     Str::Volume,      // 3
     Str::SetTime,     // 4
     Str::SetDate,     // 5
-    Str::Format,      // 6
-    Str::Language,    // 7
-    Str::Exit,        // 8
+    Str::Dst,         // 6
+    Str::Format,      // 7
+    Str::Language,    // 8
+    Str::Controls,    // 9
+    Str::Exit,        // 10
 };
-static const uint8_t kMainCount = 9;
+static const uint8_t kMainCount = 11;
 
 // Localized name for an announcement interval.
 static const char* intervalName(AnnounceInterval iv, Language lang) {
@@ -28,12 +30,16 @@ static const char* intervalName(AnnounceInterval iv, Language lang) {
   }
 }
 
-static uint8_t daysInMonth(uint16_t y, uint8_t m) {
-  static const uint8_t d[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  if (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0)) return 29;
-  if (m < 1 || m > 12) return 31;
-  return d[m - 1];
+// Localized value shown on the summer-time screen. Region names are proper
+// nouns and stay untranslated; only "Off" follows the UI language.
+static const char* dstZoneLabel(DstZone zone, Language lang) {
+  if (zone == DstZone::Off) return tr(Str::IntervalOff, lang);
+  return dstZoneName(zone);
 }
+
+// Note: the date editor clamps the day with daysInMonth() from Dst.h rather
+// than a local copy, so the leap-year rule lives in exactly one place (and is
+// covered by the host unit tests).
 
 void Menu::open() {
   _active = true;
@@ -65,11 +71,12 @@ void Menu::enterScreen(Screen s) {
 }
 
 void Menu::applyAndSave() {
-  // Push settings into the live Announcer, then persist.
+  // Push settings into the live Announcer and clock, then persist.
   _announcer.setInterval(_settings.interval);
   _announcer.setQuietHours(_settings.quietEnabled, _settings.quietStartH,
                            _settings.quietStartM, _settings.quietEndH,
                            _settings.quietEndM);
+  _clock.setDstZone(_settings.dstZone);
   _settings.save();
 }
 
@@ -110,6 +117,26 @@ void Menu::render() {
                              languageName(_settings.language),
                              tr(Str::HintSave, lang));
       break;
+    case Screen::EditDst:
+      _display.showEditValue(tr(Str::Dst, lang),
+                             dstZoneLabel(_settings.dstZone, lang),
+                             tr(Str::HintSave, lang));
+      break;
+    case Screen::Controls: {
+      // A read-only reference for the stick. Deliberately describes movements
+      // rather than button names, so it stays correct regardless of how the
+      // module ends up oriented in the enclosure.
+      const ControlRow rows[] = {
+          {CtrlIcon::UpDown, tr(Str::CtrlMove, lang)},
+          {CtrlIcon::RightClick, tr(Str::CtrlSelect, lang)},
+          {CtrlIcon::Left, tr(Str::CtrlBack, lang)},
+          {CtrlIcon::Left, tr(Str::CtrlSpeak, lang)},
+          {CtrlIcon::LeftHold, tr(Str::CtrlMute, lang)},
+      };
+      _display.showControls(tr(Str::Controls, lang), rows,
+                            sizeof(rows) / sizeof(rows[0]));
+      break;
+    }
     case Screen::EditQuietStart:
     case Screen::EditQuietEnd: {
       snprintf(buf, sizeof(buf), "%02u:%02u", _editH, _editM);
@@ -154,6 +181,16 @@ void Menu::handle(Buttons& b) {
     case Screen::EditTime: handleEditTime(b); break;
     case Screen::EditDate: handleEditDate(b); break;
     case Screen::EditLanguage: handleEditLanguage(b); break;
+    case Screen::EditDst: handleEditDst(b); break;
+    case Screen::Controls: handleControls(b); break;
+  }
+}
+
+void Menu::handleControls(Buttons& b) {
+  // Nothing to edit - any of confirm or back returns to the menu. Up/down are
+  // ignored rather than scrolling, because every row already fits on screen.
+  if (b.wasPressed(Button::Ok) || b.wasPressed(Button::Back)) {
+    enterScreen(Screen::Main);
   }
 }
 
@@ -177,9 +214,11 @@ void Menu::handleMain(Buttons& b) {
       case 3: enterScreen(Screen::EditVolume); break;
       case 4: enterScreen(Screen::EditTime); break;
       case 5: enterScreen(Screen::EditDate); break;
-      case 6: enterScreen(Screen::EditFormat); break;
-      case 7: enterScreen(Screen::EditLanguage); break;
-      case 8: _active = false; break;  // Exit
+      case 6: enterScreen(Screen::EditDst); break;
+      case 7: enterScreen(Screen::EditFormat); break;
+      case 8: enterScreen(Screen::EditLanguage); break;
+      case 9: enterScreen(Screen::Controls); break;
+      case 10: _active = false; break;  // Exit
     }
   }
 }
@@ -235,6 +274,52 @@ void Menu::handleEditLanguage(Buttons& b) {
   }
   if (b.wasPressed(Button::Ok)) { applyAndSave(); enterScreen(Screen::Main); }
   if (b.wasPressed(Button::Back)) { _settings.load(); enterScreen(Screen::Main); }
+}
+
+void Menu::handleEditDst(Buttons& b) {
+  // Cycle Off -> each supported region -> back to Off.
+  const uint8_t n = static_cast<uint8_t>(DstZone::Count);
+  uint8_t v = static_cast<uint8_t>(_settings.dstZone);
+  if (b.wasPressed(Button::Up)) {
+    v = (v + 1) % n;
+    _settings.dstZone = static_cast<DstZone>(v);
+    render();
+  }
+  if (b.wasPressed(Button::Down)) {
+    v = (v == 0) ? n - 1 : v - 1;
+    _settings.dstZone = static_cast<DstZone>(v);
+    render();
+  }
+  if (b.wasPressed(Button::Ok)) {
+    // Changing the region must NOT change what time the clock is showing.
+    //
+    // The RTC stores standard time, so a new region reinterprets the same
+    // stored value - pick a summer region in August and a stored 16:35 would
+    // start reading as 17:35. The time the user already set is the only ground
+    // truth this device has (it has no network reference), so preserve it: read
+    // the wall time under the old region, then write it straight back under the
+    // new one, which re-derives the standard time to match.
+    //
+    // Net effect: selecting a region means "handle the changes from now on",
+    // and the displayed time never moves until a real transition night.
+    const DstZone oldZone = _clock.dstZone();
+    if (_settings.dstZone != oldZone) {
+      uint16_t yr; uint8_t mo, dy, hh, mm, ss, wd;
+      bool haveTime = _clock.now(yr, mo, dy, hh, mm, ss, wd);
+      applyAndSave();  // installs the new zone
+      // Seconds are carried over, so re-homing the clock costs no accuracy.
+      if (haveTime) _clock.setDateTime(yr, mo, dy, hh, mm, ss);
+    } else {
+      applyAndSave();
+    }
+    enterScreen(Screen::Main);
+  }
+  if (b.wasPressed(Button::Back)) {
+    // Cancel: nothing was applied to the clock (only OK writes), so just drop
+    // the edited value and reload the saved one.
+    _settings.load();
+    enterScreen(Screen::Main);
+  }
 }
 
 void Menu::handleEditQuiet(Buttons& b, bool isStart) {

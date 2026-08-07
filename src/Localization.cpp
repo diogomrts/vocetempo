@@ -15,8 +15,10 @@ static const char* const kTable[static_cast<uint8_t>(Str::Count)][3] = {
     {"Volume",         "Volume",         "Volumen"},      // Volume
     {"Set time",       "Acertar hora",   "Ajustar hora"}, // SetTime
     {"Set date",       "Acertar data",   "Ajustar fecha"},// SetDate
+    {"Summer time",    "Hora de verao",  "Hora de verano"},// Dst
     {"Format",         "Formato",        "Formato"},      // Format
     {"Language",       "Idioma",         "Idioma"},       // Language
+    {"Controls",       "Controlos",      "Controles"},    // Controls
     {"Exit",           "Sair",           "Salir"},        // Exit
 
     {"Off",            "Desligado",      "Apagado"},      // IntervalOff
@@ -26,6 +28,12 @@ static const char* const kTable[static_cast<uint8_t>(Str::Count)][3] = {
 
     {"24 hour",        "24 horas",       "24 horas"},     // Format24h
     {"12 hour",        "12 horas",       "12 horas"},     // Format12h
+
+    {"Move",           "Mover",          "Mover"},        // CtrlMove
+    {"Select",         "Selecionar",     "Seleccionar"},  // CtrlSelect
+    {"Back",           "Voltar",         "Atras"},        // CtrlBack
+    {"Tap: speak",     "Toque: falar",   "Toque: hablar"},// CtrlSpeak
+    {"Hold: mute",     "Segurar: mudo",  "Mantener: mudo"},// CtrlMute
 
     {"UP/DN  OK save", "CIMA/BX OK grav","ARR/AB OK guar"},// HintSave
     {"UP/DN hour OK>", "CIMA/BX hora OK>","ARR/AB hora OK>"},// HintHour

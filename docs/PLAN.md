@@ -23,7 +23,7 @@ all features work.
 | Audio     | DFPlayer Mini                          | UART      | Plays speech clips from its own microSD|
 | Speaker   | CQRobot 3W 4ohm                        | analog    | Wired directly to DFPlayer             |
 | Storage   | microSDHC 32GB (FAT32)                 | -         | Used only by DFPlayer                  |
-| Buttons   | 4x push (UP / DOWN / OK / BACK)        | GPIO      | Debounced                              |
+| Input     | KY-023 analog joystick                 | ADC+GPIO  | Deadzone, hysteresis, debounced         |
 | Power     | 5V USB wall charger                    | USB-C     | Wall powered; no battery in v1         |
 
 ### Communication architecture
@@ -31,7 +31,7 @@ all features work.
 - OLED + DS3231 share the I2C bus.
 - DFPlayer connects over UART.
 - Speaker connects directly to the DFPlayer.
-- Buttons are GPIO inputs.
+- Joystick: two axes on ADC1 (GPIO 32/33), press-switch on GPIO 25.
 
 ## Version 1 feature list
 
@@ -40,7 +40,11 @@ all features work.
 - Automatic announcements: Off / Hourly / Every 30 min / Every 15 min.
 - Quiet hours: configurable start/end; auto announcements disabled, manual still works.
 - Settings stored in ESP32 flash (Preferences/NVS): interval, quiet hours,
-  volume, brightness, time, date, optional 12/24h mode.
+  volume, brightness, time, date, optional 12/24h mode, DST region.
+- Automatic DST for a selectable region (off by default). Computed on-device
+  from algorithmic rules, so it needs no network and no timezone database; see
+  `include/Dst.h`. The RTC holds standard time and the offset is applied on
+  read, so the hardware clock is never rewritten for a transition.
 - Display brightness (future): day/night with automatic switching.
 
 ## Audio design
@@ -73,8 +77,23 @@ sequence. Avoids one MP3 per time and makes multi-language support easy later.
 
 For each stage: explain wiring, explain the code, verify behaviour, then continue.
 
+## Host unit tests
+
+The hardware-free logic is unit-tested on the development machine with
+`pio test -e native` (Unity, `test/`). Currently covered:
+
+- `Dst` - daylight-saving rules and calendar maths, checked either side of every
+  transition instant across several years and both hemispheres.
+- `Announcer` - interval boundaries, quiet-hours windows, and the behaviour
+  across DST transitions (a repeated hour must not silence the clock).
+- `Joystick` - deadzone, hysteresis against ADC noise, and the dominant-axis
+  latch that stops a diagonal push firing two actions at once.
+
+This is the cheapest place to catch timing bugs, since neither class touches
+I2C, UART or NVS. Prefer adding logic here over testing it only on hardware.
+
 ## Future (v2)
 
 Battery operation, 18650 + USB charging, supercapacitor RTC backup, automatic
 brightness, custom PCB, 3D-printed enclosure, larger speaker, multilingual
-speech, voice selection, alarm, DST support.
+speech, voice selection, alarm, more DST regions.

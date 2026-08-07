@@ -133,6 +133,12 @@ void Audio::pollStatus() {
     case DFPlayerCardRemoved:
       Serial.println(F("[DFPlayer] SD card removed"));
       break;
+    case DFPlayerFeedBack:
+      // Routine command ACK (we run with isACK=true, so every command gets
+      // one). Silently ignored: logging it made a normal announcement print
+      // "status type 11 value 3958", which reads like a fault in a soak log
+      // when nothing is wrong at all.
+      break;
     default:
       Serial.print(F("[DFPlayer] status type "));
       Serial.print(type);

@@ -1,7 +1,8 @@
 /*
  * Menu - the settings user interface state machine.
  *
- * Driven by the four buttons. Renders through Display, edits a Settings struct
+ * Driven by the four logical actions from Buttons (UP / DOWN / OK / BACK, which
+ * the thumbstick produces). Renders through Display, edits a Settings struct
  * (and the RTC for time/date), and saves to NVS when the user leaves an edit.
  *
  * Structure:
@@ -53,6 +54,8 @@ class Menu {
     EditDate,
     EditFormat,
     EditLanguage,
+    EditDst,
+    Controls,
   };
 
   Display& _display;
@@ -81,6 +84,8 @@ class Menu {
   void handleEditTime(Buttons& b);
   void handleEditDate(Buttons& b);
   void handleEditLanguage(Buttons& b);
+  void handleEditDst(Buttons& b);
+  void handleControls(Buttons& b);
 };
 
 #endif  // VOCETEMPO_MENU_H

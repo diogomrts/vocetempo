@@ -10,12 +10,15 @@
  *   Hourly   - at minute 00
  *   Half     - at minute 00 and 30
  *   Quarter  - at minute 00, 15, 30, 45
+ *
+ * Only <stdint.h> is needed here (no Arduino types), which keeps the class
+ * host-compilable so its logic can be unit-tested - see test/test_announcer/.
  */
 
 #ifndef VOCETEMPO_ANNOUNCER_H
 #define VOCETEMPO_ANNOUNCER_H
 
-#include <Arduino.h>
+#include <stdint.h>
 
 enum class AnnounceInterval : uint8_t { Off, Hourly, Half, Quarter,
                                         TestEveryMinute };
@@ -47,9 +50,18 @@ class Announcer {
   uint16_t _quietStart = 0;  // minutes since midnight
   uint16_t _quietEnd = 0;
 
-  // Remember the last minute we announced so we only fire once per boundary.
-  int _lastAnnouncedMinute = -1;
-  int _lastAnnouncedHour = -1;
+  // Guard so a boundary fires once, not on every one of the ~200 loop
+  // iterations that fall inside its zero-second window.
+  //
+  // It latches on firing and is released as soon as the clock reads a
+  // different minute. Deliberately NOT "have I already announced this
+  // (hour, minute) value?": on a daylight-saving fall-back the clock legitimately
+  // repeats an hour, and a value-based guard would suppress every boundary in
+  // the replayed hour, silencing the clock. Releasing on change means the
+  // repeated hour is announced again, which is the correct behaviour.
+  bool _fired = false;
+  uint8_t _firedHour = 0;
+  uint8_t _firedMinute = 0;
 
   bool isBoundaryMinute(uint8_t minute) const;
 };

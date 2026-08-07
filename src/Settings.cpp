@@ -24,6 +24,14 @@ void Settings::load() {
   language = static_cast<Language>(
       prefs.getUChar("lang", static_cast<uint8_t>(language)));
 
+  // Clamp on read: a value written by a newer firmware (or a corrupt cell)
+  // must never index past the DST rule table.
+  uint8_t zone = prefs.getUChar("dstZone", static_cast<uint8_t>(dstZone));
+  if (zone >= static_cast<uint8_t>(DstZone::Count)) {
+    zone = static_cast<uint8_t>(DstZone::Off);
+  }
+  dstZone = static_cast<DstZone>(zone);
+
   prefs.end();
 }
 
@@ -43,6 +51,7 @@ void Settings::save() {
   prefs.putBool("muted", muted);
   prefs.putBool("use24h", use24h);
   prefs.putUChar("lang", static_cast<uint8_t>(language));
+  prefs.putUChar("dstZone", static_cast<uint8_t>(dstZone));
 
   prefs.end();
 }

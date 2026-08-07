@@ -16,6 +16,22 @@
 
 #include "Panda.h"
 
+// Glyph shown beside a row on the controls/help screen. These describe the
+// stick movement rather than a named button, so the help stays true to the
+// hardware: an arrow the user can copy with their thumb.
+enum class CtrlIcon : uint8_t {
+  UpDown,      // up and down arrows stacked
+  RightClick,  // right arrow plus a dot (push right, or press the stick)
+  Left,        // left arrow
+  LeftHold,    // left arrow plus a bar, meaning hold it rather than tap
+};
+
+// One line of the controls screen.
+struct ControlRow {
+  CtrlIcon icon;
+  const char* text;
+};
+
 class Display {
  public:
   // Initialise the OLED over I2C. Returns false if the display was not found
@@ -65,6 +81,12 @@ class Display {
   // and up/down hints. Used for volume, interval, time fields, etc.
   void showEditValue(const String& title, const String& value,
                      const String& hint = "");
+
+  // Draw the controls / help screen: a title bar plus one row per control,
+  // each an icon showing the stick movement and a short label. Up to
+  // kMaxControlRows fit on the panel.
+  void showControls(const String& title, const ControlRow* rows, uint8_t count);
+  static const uint8_t kMaxControlRows = 5;
 
  private:
   bool _ready = false;

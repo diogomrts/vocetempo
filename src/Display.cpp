@@ -210,6 +210,74 @@ static void drawMuteIcon(Adafruit_SSD1306& d, int16_t x, int16_t y) {
   d.drawLine(x, y + 9, x + 9, y, SSD1306_WHITE);
 }
 
+// ---- Controls-screen glyphs -------------------------------------------------
+//
+// Each is drawn inside a 12 x 10 box with (x,y) as its top-left corner, so they
+// line up in a column whatever the row. Arrows rather than words, because the
+// point is to show the movement the thumb should make.
+
+static void drawUpDownGlyph(Adafruit_SSD1306& d, int16_t x, int16_t y) {
+  d.fillTriangle(x + 4, y, x, y + 4, x + 8, y + 4, SSD1306_WHITE);
+  d.fillTriangle(x + 4, y + 9, x, y + 5, x + 8, y + 5, SSD1306_WHITE);
+}
+
+static void drawLeftGlyph(Adafruit_SSD1306& d, int16_t x, int16_t y) {
+  d.fillTriangle(x, y + 4, x + 5, y, x + 5, y + 8, SSD1306_WHITE);
+}
+
+// Left arrow plus a solid bar: the arrow is the direction, the bar means keep
+// holding it. Distinguishes "hold to mute" from "tap to speak" at a glance.
+static void drawLeftHoldGlyph(Adafruit_SSD1306& d, int16_t x, int16_t y) {
+  drawLeftGlyph(d, x, y);
+  d.fillRect(x + 7, y + 1, 2, 7, SSD1306_WHITE);
+}
+
+// Right arrow plus a dot, because OK has two sources: push right, or press the
+// stick straight down.
+static void drawRightClickGlyph(Adafruit_SSD1306& d, int16_t x, int16_t y) {
+  d.fillTriangle(x + 5, y + 4, x, y, x, y + 8, SSD1306_WHITE);
+  d.fillCircle(x + 9, y + 4, 2, SSD1306_WHITE);
+}
+
+static void drawCtrlIcon(Adafruit_SSD1306& d, CtrlIcon icon, int16_t x,
+                         int16_t y) {
+  switch (icon) {
+    case CtrlIcon::UpDown: drawUpDownGlyph(d, x, y); break;
+    case CtrlIcon::RightClick: drawRightClickGlyph(d, x, y); break;
+    case CtrlIcon::Left: drawLeftGlyph(d, x, y); break;
+    case CtrlIcon::LeftHold: drawLeftHoldGlyph(d, x, y); break;
+  }
+}
+
+void Display::showControls(const String& title, const ControlRow* rows,
+                           uint8_t count) {
+  if (!_ready || rows == nullptr) return;
+  if (count > kMaxControlRows) count = kMaxControlRows;
+
+  oled.clearDisplay();
+  oled.setTextSize(1);
+
+  // Title bar, inverted, matching showMenu so the screens feel related.
+  oled.fillRect(0, 0, SCREEN_WIDTH, 12, SSD1306_WHITE);
+  oled.setTextColor(SSD1306_BLACK);
+  oled.setCursor(2, 2);
+  oled.print(title);
+  oled.setTextColor(SSD1306_WHITE);
+
+  // Five rows of 10px starting at y=14 reach y=62 - just inside the panel.
+  // The icon column is 12px wide, leaving 107px (17 characters) for the label,
+  // which is why the strings in Localization.cpp are kept to a couple of words.
+  const uint8_t rowH = 10;
+  for (uint8_t i = 0; i < count; i++) {
+    const int16_t y = 14 + i * rowH;
+    drawCtrlIcon(oled, rows[i].icon, 3, y);
+    oled.setCursor(19, y + 1);
+    oled.print(rows[i].text);
+  }
+
+  oled.display();
+}
+
 void Display::showClock(const String& weekday, const String& time,
                         const String& date, bool quietHours, bool muted) {
   if (!_ready) return;
@@ -292,8 +360,11 @@ void Display::showEditValue(const String& title, const String& value,
   oled.setCursor(2, 2);
   oled.print(title);
 
-  // Value large in the middle, centred.
-  drawCentered(oled, value, 2, 24);
+  // Value large in the middle, centred. At size 2 a character is 12px wide, so
+  // 10 is all that fits across the 128px panel; anything longer (some region
+  // and language names) drops to size 1 rather than being clipped at the edges.
+  const bool wide = value.length() > 10;
+  drawCentered(oled, value, wide ? 1 : 2, wide ? 28 : 24);
 
   // Hint at the bottom (e.g. "UP/DOWN change  OK save").
   if (hint.length()) {

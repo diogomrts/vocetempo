@@ -36,8 +36,10 @@ enum class Str : uint8_t {
   Volume,
   SetTime,
   SetDate,
+  Dst,
   Format,
   Language,
+  Controls,
   Exit,
 
   // Announcement interval values.
@@ -49,6 +51,14 @@ enum class Str : uint8_t {
   // Time format values.
   Format24h,
   Format12h,
+
+  // Controls / help screen rows. Kept to a couple of words each so they still
+  // fit beside their icon once translated.
+  CtrlMove,      // stick up/down
+  CtrlSelect,    // stick right, or press it
+  CtrlBack,      // stick left
+  CtrlSpeak,     // tap left on the clock face
+  CtrlMute,      // hold left on the clock face
 
   // Edit-screen hints.
   HintSave,      // change value, then save

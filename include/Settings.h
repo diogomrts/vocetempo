@@ -15,6 +15,7 @@
 #include <Arduino.h>
 
 #include "Announcer.h"  // for AnnounceInterval
+#include "Dst.h"        // for DstZone
 
 // Speech language. The value maps to a file-index offset in /mp3:
 //   English 0, Portuguese 2000, Spanish 4000 (see audio/generate_multilang.py).
@@ -56,11 +57,16 @@ struct Settings {
 
   // When true, automatic announcements are suppressed (a mute icon shows on
   // the clock face). Manual "speak the time" on a BACK tap still works.
-  // Toggled by holding the BACK button on the clock face.
+  // Toggled by holding BACK (the stick pushed left) on the clock face.
   bool muted = false;
 
   // Display / speech format.
   bool use24h = false;
+
+  // Daylight saving region. Off by default, which means no DST is ever applied
+  // and the clock behaves as a plain wall clock. Pick a region and the RTC's
+  // stored standard time is shifted automatically twice a year - see Dst.h.
+  DstZone dstZone = DstZone::Off;
 
   // Speech language.
   Language language = Language::English;

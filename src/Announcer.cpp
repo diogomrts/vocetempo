@@ -40,6 +40,14 @@ bool Announcer::isQuietNow(uint8_t hour, uint8_t minute) const {
 }
 
 bool Announcer::shouldAnnounce(uint8_t hour, uint8_t minute, uint8_t second) {
+  // Release the guard as soon as the clock shows a minute other than the one we
+  // last announced. This runs before every early return below, so the guard
+  // still clears while muted, during quiet hours, or with the interval Off -
+  // otherwise a stale latch could swallow the first boundary after those end.
+  if (_fired && (hour != _firedHour || minute != _firedMinute)) {
+    _fired = false;
+  }
+
   if (_interval == AnnounceInterval::Off) return false;
 
   // Suppress automatic announcements during quiet hours (manual speech still
@@ -47,19 +55,15 @@ bool Announcer::shouldAnnounce(uint8_t hour, uint8_t minute, uint8_t second) {
   if (isQuietNow(hour, minute)) return false;
 
   // Only consider the very start of the minute so we announce once, promptly.
-  if (second != 0) {
-    // Reset the guard once we've moved off the boundary minute, so the next
-    // boundary can fire. (Guard is keyed on hour+minute below.)
-    return false;
-  }
+  if (second != 0) return false;
 
   if (!isBoundaryMinute(minute)) return false;
 
-  // Fire only once per (hour, minute) boundary.
-  if (minute == _lastAnnouncedMinute && hour == _lastAnnouncedHour) {
-    return false;
-  }
-  _lastAnnouncedMinute = minute;
-  _lastAnnouncedHour = hour;
+  // Already spoken for this minute; wait for the clock to move on.
+  if (_fired) return false;
+
+  _fired = true;
+  _firedHour = hour;
+  _firedMinute = minute;
   return true;
 }

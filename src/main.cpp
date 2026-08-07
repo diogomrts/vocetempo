@@ -8,10 +8,14 @@
  *   - Menu view : configure interval, quiet hours, volume, time, date, format,
  *                 language.
  *
+ * Input is a single KY-023 thumbstick. Buttons.h maps it to four logical
+ * actions - stick up/down, left = BACK, right or a press = OK - so everything
+ * below is written in terms of those actions, not the hardware.
+ *
  * Controls (clock view):
- *   - BACK     : speak the current time.
- *   - OK       : open the settings menu.
- *   - UP/DOWN  : panda reaction animation (eye-candy).
+ *   - BACK  (stick left)        : tap speaks the current time, hold mutes.
+ *   - OK    (press or right)    : open the settings menu.
+ *   - UP/DOWN                   : panda reaction animation (eye-candy).
  * Controls (menu view): UP/DOWN navigate (hold to repeat), OK select/confirm,
  *   BACK go back/exit.
  *
@@ -99,8 +103,28 @@ void setup() {
     Serial.println(F("ERROR: OLED not found."));
   }
 
-  if (clock_.begin()) {
+  bool rtcReady = clock_.begin();
+  if (rtcReady) {
     Serial.println(F("DS3231 RTC initialised OK."));
+  } else {
+    Serial.println(F("ERROR: DS3231 RTC not found."));
+  }
+
+  // Load persisted settings (or defaults on first boot).
+  settings.load();
+
+  // The DST zone must be applied BEFORE any clock read or write, because it
+  // decides how the RTC's stored standard time is interpreted. Seeding from
+  // compile time below is a write, so it has to come after this.
+  clock_.setDstZone(settings.dstZone);
+  if (settings.dstZone != DstZone::Off) {
+    Serial.print(F("DST zone: "));
+    Serial.print(dstZoneName(settings.dstZone));
+    Serial.println(clock_.dstActive() ? F(" (summer time active)")
+                                      : F(" (standard time)"));
+  }
+
+  if (rtcReady) {
     // Only auto-set the clock if power was *really* lost (debounced across
     // several reads + corroborated by an invalid time). This prevents a
     // glitching I2C bus from tricking us into overwriting a clock that is
@@ -109,12 +133,7 @@ void setup() {
       Serial.println(F("RTC power was lost; seeding from compile time."));
       clock_.setToCompileTime();
     }
-  } else {
-    Serial.println(F("ERROR: DS3231 RTC not found."));
   }
-
-  // Load persisted settings (or defaults on first boot).
-  settings.load();
 
   if (audio.begin()) {
     audioReady = true;
@@ -126,6 +145,23 @@ void setup() {
   }
 
   buttons.begin();
+  // Report the stick's measured resting point. If calibration was rejected the
+  // user was probably holding it at boot, or an axis is not connected - either
+  // way the deadzone falls back to nominal and the log says so rather than
+  // leaving a mystery. tools/joystick_test gives the full picture.
+  Serial.print(F("Joystick centre: x="));
+  Serial.print(buttons.centreX());
+  Serial.print(F(" y="));
+  Serial.print(buttons.centreY());
+  if (buttons.calibrated()) {
+    Serial.println(F(" (calibrated)"));
+  } else {
+    Serial.print(F(" (NOT calibrated - resting read x="));
+    Serial.print(buttons.rawX());
+    Serial.print(F(" y="));
+    Serial.print(buttons.rawY());
+    Serial.println(F("; stick held at boot or an axis unwired?)"));
+  }
 
   // Apply loaded settings to the announcer.
   announcer.setInterval(settings.interval);
@@ -138,8 +174,8 @@ void setup() {
   esp_task_wdt_init(WDT_TIMEOUT_S, /*panic=*/true);
   esp_task_wdt_add(NULL);  // watch the current (loop) task
 
-  Serial.println(F("Ready. BACK taps to speak, hold to mute; OK opens the "
-                   "menu; UP/DOWN pet the panda."));
+  Serial.println(F("Ready. Stick LEFT taps to speak, hold to mute; press or "
+                   "RIGHT opens the menu; UP/DOWN pet the panda."));
   Serial.print(F("Soak test: watchdog "));
   Serial.print(WDT_TIMEOUT_S);
   Serial.println(F("s, heartbeat every 60s."));
@@ -162,9 +198,9 @@ static void runPandaMode(bool startWaveRight) {
 
   uint8_t hearts = 1;
   uint8_t capIdx = 0;
-  // Paw side matches the physical button that was pressed: UP -> left paw,
-  // DOWN -> right paw. `startWaveRight` is true when entered via UP; we invert
-  // it here so the waving paw lines up with the button's position.
+  // Paw side follows the direction pushed: UP -> left paw, DOWN -> right paw.
+  // `startWaveRight` is true when entered via UP; we invert it here so the
+  // waving paw matches the way the stick was moved.
   Panda::Pose pose = startWaveRight ? Panda::Pose::WaveLeft
                                     : Panda::Pose::WaveRight;
 
@@ -188,7 +224,7 @@ static void runPandaMode(bool startWaveRight) {
       lastInteract = millis();
       if (hearts < 16) hearts++;  // matches Display's side-column heart layout
       capIdx = (capIdx + 1) % kNumCaptions;
-      // UP -> left paw, DOWN -> right paw (matches physical button layout).
+      // UP -> left paw, DOWN -> right paw (mirrors the stick's movement).
       if (up) pose = Panda::Pose::WaveLeft;
       else if (down) pose = Panda::Pose::WaveRight;
       else pose = Panda::Pose::Happy;
@@ -216,8 +252,28 @@ static void runPandaMode(bool startWaveRight) {
   esp_task_wdt_reset();
 }
 
+// Stage 12: heartbeat - print uptime, free heap, and the RTC time so a soak log
+// shows liveness, memory stability, and clock accuracy over time.
+//
+// Called from the TOP of loop(), before the menu early-return, so a clock left
+// sitting in a menu overnight still proves it is alive. With this at the bottom
+// of loop() the log went completely silent whenever a menu was open, which is
+// indistinguishable from a crash in a soak log.
+static void heartbeat() {
+  static unsigned long lastBeat = 0;
+  if (millis() - lastBeat < HEARTBEAT_MS) return;
+  lastBeat = millis();
+  Serial.print(F("[hb] up="));
+  Serial.print(millis() / 1000);
+  Serial.print(F("s heap="));
+  Serial.print(ESP.getFreeHeap());
+  Serial.print(F(" rtc="));
+  Serial.println(clock_.timeString(true));
+}
+
 void loop() {
   buttons.update();
+  heartbeat();
 
   if (menu.isActive()) {
     // ---- Menu view ----
@@ -229,6 +285,11 @@ void loop() {
       audio.setVolume(settings.volume);
       lastSecond = 255;
     }
+    // The menu is a legitimately long-lived state - a user can sit on a screen
+    // for minutes - so it must feed the watchdog itself. This return skips the
+    // reset at the bottom of loop(), so without this line the 30s watchdog
+    // could reset the clock while someone was simply reading a settings page.
+    esp_task_wdt_reset();
     delay(5);
     return;
   }
@@ -333,31 +394,19 @@ void loop() {
   }
 
   // Automatic announcements at the configured interval (skipped in quiet hours
-  // and when muted). When muted we short-circuit before shouldAnnounce(); this
-  // is safe because each boundary is a distinct (hour, minute), so unmuting
-  // later simply resumes at the next boundary with no double-fire. This runs
-  // AFTER the display update above so the screen already shows the new time.
-  if (haveTime && audioReady && !settings.muted &&
-      announcer.shouldAnnounce(hour, minute, second)) {
+  // and when muted). shouldAnnounce() is asked on every good time read, even
+  // while muted or without audio, so its once-per-boundary guard keeps
+  // following the clock and cannot go stale; the checks below decide whether to
+  // act on the answer. This runs AFTER the display update above so the screen
+  // already shows the new time.
+  bool announceDue = haveTime && announcer.shouldAnnounce(hour, minute, second);
+  if (announceDue && audioReady && !settings.muted) {
     Serial.print(F("Auto-announcing: "));
     Serial.print(hour);
     Serial.print(':');
     Serial.println(minute);
     audio.speakTime(hour, minute, settings.use24h,
                     languageOffset(settings.language));
-  }
-
-  // Stage 12: heartbeat - print uptime, free heap, and the RTC time so a soak
-  // log shows liveness, memory stability, and clock accuracy over time.
-  static unsigned long lastBeat = 0;
-  if (millis() - lastBeat >= HEARTBEAT_MS) {
-    lastBeat = millis();
-    Serial.print(F("[hb] up="));
-    Serial.print(millis() / 1000);
-    Serial.print(F("s heap="));
-    Serial.print(ESP.getFreeHeap());
-    Serial.print(F(" rtc="));
-    Serial.println(clock_.timeString(true));
   }
 
   // Feed the watchdog so it knows the loop is healthy.
