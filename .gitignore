@@ -22,3 +22,6 @@ __pycache__/
 *.elf
 *.map
 soak/
+
+# OpenSCAD-generated STLs (reproducible from the .scad source)
+enclosure/stl/
