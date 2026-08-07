@@ -29,15 +29,17 @@ module panda_raw() {
 }
 
 // ---- Opening placements (belly is +Y) --------------------------------------
-// Sculpt has screen ~Z32 and knob ~Z20 (only ~12mm apart). The real OLED window
-// (28mm tall) + joystick can't be that close, but a SLIM PRINTED CAP shrinks the
-// joystick opening to ~20mm, letting spacing tighten to 25mm. Centred on the
-// belly: OLED on the screen emboss, joystick on/near the knob.
+// Placements come from dimensions.scad (single source of truth). Mesh analysis
+// this session: sculpted screen plaque centres at panda Z~40, knob at panda Z~20
+// (~20mm apart). The 28mm-tall OLED window + slim-cap joystick need >=28mm centre
+// spacing, so we spread them symmetrically about the feature midpoint (Z30) ->
+// OLED window panda Z44 (dev_oled_pz), joystick panda Z16 (dev_joy_pz). Each still
+// lands on its sculpted feature.
 // Cut solids START OUTSIDE the belly (+Y) and extrude back (-Y) through the body.
-belly_face_y   = 72;      // outside the belly (peak ~67) so cuts punch through
-screen_cz      = 38;      // OLED window centre (on the sculpted screen ~Z32-38)
-knob_cz        = 13;      // joystick centre, 25mm below (near the knob/lower belly)
-cut_depth      = 80;      // how far a cut solid reaches back from the surface
+belly_face_y   = 72;             // outside the belly (peak ~67) so cuts punch through
+screen_cz      = dev_oled_pz;    // OLED window centre (panda Z, on the screen plaque)
+knob_cz        = dev_joy_pz;     // joystick centre (panda Z, on the knob)
+cut_depth      = 80;             // how far a cut solid reaches back from the surface
 
 // OLED window: cut the lit-area rectangle through the belly. The cut solid
 // starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
@@ -82,15 +84,41 @@ module panda_head_vents() {
 // ---- Hollowing -------------------------------------------------------------
 // The body only needs to be hollow WHERE THE CAGE SITS - not a uniform thin
 // shell (scaling the mesh down breaks thin features like the ears). So the
-// cavity is a rounded prism sized to the cage + wiring clearance, running from
-// the base up into the chest. The head stays mostly solid except the neck bore.
-cav_clear = 3;            // clearance around the cage inside the cavity
+// cavity is a rounded prism sized to the cage + wiring clearance.
+//
+// CRITICAL FIX (this session - the "shoulder holes"): the old cavity was a tall
+// box (cage_h+6, reaching panda Z~94) at full 81mm width the whole way up. Above
+// the belly peak (~Z35) the torso NARROWS and the folded arms leave a thin-walled
+// ARMPIT gap (chest surface recedes to Y~-15..-36 there). A full-width/full-height
+// box punched through that thin armpit wall -> orange holes at the shoulders, and
+// its front-top corner also pierced the chest below the chin.
+//
+// FIX: a TAPERED cavity - full size low down (houses the wide OLED + boards), then
+// tapering NARROWER and shallower toward the top so the walls stay inside the
+// narrowing torso and never reach the armpit gaps. Verified hole-free by render.
+// The OLED PCB's two TOP corners (bare PCB, header is on the bottom edge) clip the
+// tapered top by ~2mm and get a small chamfer at assembly (see docs/ASSEMBLY).
+// The speaker still reaches the head via the neck bore, so the cavity needn't go
+// higher than the cage.
+cav_clear   = 3;          // clearance around the cage inside the cavity
+cav_z_lo    = -1;         // start just below the base plane (open hatch)
+cav_z_mid   = 46;         // full-width up to here (clears OLED lit area + boards)
+cav_z_hi    = 64;         // tapered top (~OLED PCB top; below the armpit thin wall)
+cav_lo_hw   = (cage_w + 2*cav_clear)/2;   // lower half-width (X) ~40.5
+cav_lo_dep  = cage_d + 2*cav_clear;       // lower depth  (Y)  ~44
+cav_up_hw   = 31;         // upper half-width (X) - armpit-safe [render-tuned]
+cav_up_dep  = 31;         // upper depth (Y) - armpit-safe      [render-tuned]
+cav_cy      = 2;          // cavity Y centre (cage sits slightly forward)
 module panda_cavity() {
-    cw = cage_w + 2*cav_clear;
-    cd = cage_d + 2*cav_clear;
-    ch = cage_h + 6;      // a little headroom above the cage
-    translate([0, 2, cage_z0 + ch/2 - 2])
-        rounded_box(cw, cd, ch, r = 4);
+    // hull a wide lower slab into a narrower upper slab -> smooth inward taper.
+    hull() {
+        translate([0, cav_cy, cav_z_lo])
+            linear_extrude(cav_z_mid - cav_z_lo)
+                offset(r = 4) square([2*cav_lo_hw - 8, cav_lo_dep - 8], center = true);
+        translate([0, cav_cy, cav_z_hi - 0.1])
+            linear_extrude(0.1)
+                offset(r = 4) square([2*cav_up_hw - 8, cav_up_dep - 8], center = true);
+    }
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------

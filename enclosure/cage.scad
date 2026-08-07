@@ -95,17 +95,16 @@ module magnet_pockets() {
 // ---------------------------------------------------------------------------
 front_y      = -D/2;                 // outer plane of the front wall
 
-// OLED and joystick CENTRES are set 28mm apart to match the panda belly (the
-// belly can't fit the full stacked-PCB spacing). The joystick PCB overlaps
-// behind the OLED PCB's lower dead-space (OLED lit area is only 28mm of the
-// 46.6mm board, sitting +3.1 above centre - the lower ~17mm is dead). The two
-// PCBs mount at DIFFERENT depths so they can overlap in Z without touching:
-// OLED on short front standoffs, joystick deeper on its own taller standoffs.
-// Centres chosen so that, with the cage base at panda Z=cage_z0 (12), the
-// devices land at panda Z=58 (OLED) and Z=30 (joystick) - verified on the belly.
-dev_sep      = 28;                   // OLED centre to joystick centre (matches panda)
-oled_cz      = 46;                   // -> panda Z 58 when cage_z0=12
-joy_cz       = oled_cz - dev_sep;    // = 18 -> panda Z 30
+// OLED and joystick CENTRES come from dimensions.scad (single source of truth):
+// oled_cz / joy_cz are DERIVED there from dev_oled_pz / dev_joy_pz and cage_z0 so
+// that cage-internal Z + cage_z0 = panda Z. With the current values the devices
+// land at panda Z44 (OLED window) and Z16 (joystick) - on the sculpted screen and
+// knob. Spacing is dev_sep = 28mm (a ~4mm bridge between the two openings).
+// The joystick PCB overlaps behind the OLED PCB's lower dead-space (OLED lit area
+// is only 28mm of the 46.6mm board, sitting +3.1 above centre); the two PCBs mount
+// at DIFFERENT depths (short OLED standoffs, taller joystick standoffs) so they
+// overlap in Z without touching. dev_sep, oled_cz, joy_cz are defined in
+// dimensions.scad.
 
 // ---------------------------------------------------------------------------
 // OLED: window through the front wall (at the LIT area, offset +3.1 up), plus

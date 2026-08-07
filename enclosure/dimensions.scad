@@ -223,9 +223,32 @@ panda_w         = 115;    // approx overall width at the base
 cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
 cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
                           //   (devices overlap in Z at different depths to fit
-                          //   the panda belly); OLED top ~69 + margin
+                          //   the panda belly); OLED top ~62 + speaker margin
 cage_d          = 38;     // outer depth  (Y) - OLED header + wiring + board pins
-cage_z0         = 12;     // cage base sits at this Z (above the feet, below waist)
+cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
+
+// ---- SINGLE SOURCE OF TRUTH for device placement (panda Z + cage Z) ----------
+// The panda sculpt was MESH-ANALYSED this session (orthographic front render with
+// 2mm Z markers + depth-deviation map): the embossed screen plaque centres at
+// panda Z~40 and the round belly knob at panda Z~20, only ~20mm apart. But the
+// OLED lit window is 28mm tall and the slim-cap joystick opening ~20mm, so the two
+// PANEL OPENINGS need >=28mm centre-to-centre (for a ~4mm bridge) - they CANNOT
+// both sit dead-centre on the sculpt. DECISION (user): spread them symmetrically
+// about the feature midpoint (panda Z30) -> OLED window at panda Z44, joystick at
+// panda Z16. Each opening still lands on its sculpted feature; belly around them
+// is plain so the small offset reads fine.
+//
+// Mapping rule: cage-internal Z + cage_z0 = panda Z. Both panda.scad and cage.scad
+// derive their cuts from these, so they can never drift apart again.
+dev_oled_pz     = 44;     // OLED lit-window centre, PANDA Z [on the screen plaque]
+dev_joy_pz      = 16;     // joystick opening centre, PANDA Z [on the knob]
+dev_sep         = dev_oled_pz - dev_joy_pz;   // = 28 (opening centre spacing)
+// Cage-frame centres (derived; used by cage.scad):
+//   window centre (lit area) = dev_oled_pz - cage_z0
+//   OLED PCB centre          = window centre - oled_active_dy  (lit sits +3.1 up)
+//   joystick centre          = dev_joy_pz - cage_z0
+oled_cz         = dev_oled_pz - cage_z0 - oled_active_dy;  // OLED PCB centre (cage Z)
+joy_cz          = dev_joy_pz  - cage_z0;                   // joystick centre (cage Z)
 
 // ---- Print / fit parameters -----------------------------------------------
 wall            = 2.4;    // shell wall thickness (good on a 0.4mm nozzle)

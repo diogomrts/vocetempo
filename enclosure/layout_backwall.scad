@@ -61,7 +61,7 @@ color("red") {
 color("orange") rect(dfp_cx, dfp_cz, dfp_w, dfp_h);
 color("red") { boss(dfp_cx - (dfp_w+8)/2, dfp_cz); boss(dfp_cx + (dfp_w+8)/2, dfp_cz); }
 
-// Front-device keep-outs (where they sit in X/Z, for reference)
-dev_sep=28; oled_cz=46; joy_cz=oled_cz-dev_sep;
+// Front-device keep-outs (where they sit in X/Z, for reference).
+// dev_sep / oled_cz / joy_cz come from dimensions.scad now (single source).
 color([1,1,0,0.25]) rect(0, oled_cz, oled_pcb_w, oled_pcb_h);   // OLED PCB shadow
 color([1,1,0,0.25]) rect(0, joy_cz, joy_pcb_w, joy_pcb_h);      // joystick PCB shadow
