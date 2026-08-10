@@ -224,8 +224,23 @@ cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
 cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
                           //   (devices overlap in Z at different depths to fit
                           //   the panda belly); OLED top ~62 + speaker margin
-cage_d          = 38;     // outer depth  (Y) - OLED header + wiring + board pins
+// DEPTH (Y): the panda belly BULGES ~86mm forward of the body centre. A shallow
+// cage would leave the OLED at the bottom of a deep dark tunnel. So the cage is
+// DEEP: its front face (OLED/joystick) sits just behind the belly surface while the
+// back wall (ESP32/RTC/DFPlayer) sits near the torso's rear. The torso has room
+// (~95-107mm deep through the cage region). [Integration fit-check, this session.]
+cage_d          = 80;     // outer depth  (Y) - reaches the belly (was 38; tunnel)
 cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
+// The cage front (belly) face lands at this PANDA Y. Belly surface over the window
+// is Y~61..67; the front face sits ~7-13mm behind, leaving a belly wall the window
+// pierces (a shallow recessed screen). Cage back then lands at Y-26 (front - depth),
+// clear of the torso rear (~Y-28..-40).
+// PLACEMENT: cage.scad's own frame has the OLED front at -Y, so in the panda the
+// cage is ROTATED 180 about Z, then translated:
+//     translate([0, cage_yc, cage_z0]) rotate([0,0,180]) cage();
+// After the 180 spin, the cage front (-D/2) maps to +D/2, i.e. panda Y cage_yfront.
+cage_yfront     = 54;     // panda Y of the cage FRONT (belly) outer face
+cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 14)
 
 // ---- SINGLE SOURCE OF TRUTH for device placement (panda Z + cage Z) ----------
 // The panda sculpt was MESH-ANALYSED this session (orthographic front render with

@@ -77,7 +77,7 @@ module panda_joystick_cut() {
 // rises to sp_z1=118 into the head. Verified connected + breach-free by render.
 // Centred at Y=sp_cy (the neck's solid mid-Y) and kept narrow enough (48x34) to stay
 // inside the neck without breaching the leaning chest/chin.
-sp_cy  = 6;               // chimney Y centre (neck solid core mid-Y)
+sp_cy  = cage_yc;         // chimney Y centre = cage centre (speaker fires up centred)
 sp_hw  = 24;              // chimney half-width (X) -> 48 wide (> grille 37.35)
 sp_dep = 17;             // chimney half-depth (Y) -> 34 deep (> grille 26.80)
 sp_z0  = 55;              // start BELOW the cavity top (overlap -> continuous void)
@@ -118,31 +118,37 @@ module panda_head_vents() {
 // tapered top by ~2mm and get a small chamfer at assembly (see docs/ASSEMBLY).
 // The speaker still reaches the head via the neck bore, so the cavity needn't go
 // higher than the cage.
+// The cage is now DEEP (reaches the belly), so the cavity is a deep prism centred
+// at cage_yc. It still TAPERS narrower toward the top to stay clear of the armpit
+// thin-walls (the shoulder-hole fix). The front face sits ~3mm behind the belly
+// wall the window pierces; the back stays clear of the torso rear.
 cav_clear   = 3;          // clearance around the cage inside the cavity
 cav_z_lo    = -1;         // start just below the base plane (open hatch)
-cav_z_mid   = 46;         // full-width up to here (clears OLED lit area + boards)
+cav_z_mid   = 46;         // full-size up to here (clears OLED lit area + boards)
 cav_z_hi    = 64;         // tapered top (~OLED PCB top; below the armpit thin wall)
 cav_lo_hw   = (cage_w + 2*cav_clear)/2;   // lower half-width (X) ~40.5
-cav_lo_dep  = cage_d + 2*cav_clear;       // lower depth  (Y)  ~44
+cav_lo_dep  = cage_d + 2*cav_clear;       // lower depth  (Y)  ~86
 cav_up_hw   = 31;         // upper half-width (X) - armpit-safe [render-tuned]
-cav_up_dep  = 31;         // upper depth (Y) - armpit-safe      [render-tuned]
-cav_cy      = 2;          // cavity Y centre (cage sits slightly forward)
+cav_up_dep  = 34;         // upper depth (Y) - armpit-safe      [render-tuned]
+cav_cy      = cage_yc;    // cavity Y centre = cage centre (deep, reaches belly)
 module panda_cavity() {
     // hull a wide lower slab into a narrower upper slab -> smooth inward taper.
+    // The taper narrows in X and Y toward the top; the upper slab is pulled toward
+    // the belly (front) since the boards+armpit issue is lower/rear.
     hull() {
         translate([0, cav_cy, cav_z_lo])
             linear_extrude(cav_z_mid - cav_z_lo)
                 offset(r = 4) square([2*cav_lo_hw - 8, cav_lo_dep - 8], center = true);
-        translate([0, cav_cy, cav_z_hi - 0.1])
+        translate([0, cav_cy + (cav_lo_dep - cav_up_dep)/2, cav_z_hi - 0.1])
             linear_extrude(0.1)
                 offset(r = 4) square([2*cav_up_hw - 8, cav_up_dep - 8], center = true);
     }
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------
+// Centred at the cage centre (cage_yc) so the DEEP cage drops straight through.
 module panda_base_hatch() {
-    // rectangular opening in the base matching the cage footprint + clearance
-    translate([0, 0, -eps])
+    translate([0, cage_yc, -eps])
         linear_extrude(height = cage_z0 + 2)
             offset(r = 2)
                 square([cage_w + 2, cage_d + 2], center = true);
