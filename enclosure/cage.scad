@@ -385,6 +385,59 @@ module esp32_bar() { retention_bar(esp_w + 8, esp_t); }
 module dfp_bar()   { retention_bar(dfp_w + 8, dfp_t); }
 
 // ---------------------------------------------------------------------------
+// SLIM JOYSTICK CAP (separate printed part).
+// Replaces the stock 26mm rubber thumb-cap so the panel opening can be a tidy
+// ~20mm instead of ~32mm. Used as a d-pad the stick only needs ~11 deg of travel.
+//
+// A ~16mm domed disc with a KEYED OVAL SOCKET underneath that press-fits the stock
+// shaft (an oval post: 4.0mm across the round, 3.0mm across two flats, 5.95mm tall).
+// The oval keys the cap against rotation. Socket at nominal shaft size + a hair of
+// clearance; a drop of CA locks it. Print socket-up (dome on the bed) or dome-up
+// with supports; socket-up needs none and hides layer lines on top.
+// ---------------------------------------------------------------------------
+cap_wall   = 2.0;    // wall around the socket
+cap_h      = 8.0;    // overall cap height (dome + socket barrel)
+sock_clr   = 0.15;   // socket clearance over the shaft (CA glue takes up the rest)
+
+// An oval cross-section: a circle of dia `d` flattened to width `w` across the flats.
+module oval2d(w, d) {
+    intersection() {
+        circle(d = d);
+        square([w, d + 1], center = true);
+    }
+}
+
+module joy_cap() {
+    d = joy_slim_cap_d;
+    sock_d = joy_shaft_d + 2*sock_clr;   // socket across the round
+    sock_w = joy_shaft_w + 2*sock_clr;   // socket across the flats
+    sock_depth = joy_shaft_len + 0.5;    // a touch deeper than the shaft
+    difference() {
+        union() {
+            // socket barrel (keyed oval outer follows the shaft, + wall)
+            linear_extrude(cap_h - 2)
+                oval2d(sock_w + 2*cap_wall, sock_d + 2*cap_wall);
+            // domed top disc
+            translate([0, 0, cap_h - 2])
+                hull() {
+                    linear_extrude(0.1) circle(d = d);
+                    translate([0, 0, 2]) scale([1, 1, 0.5]) sphere(d = d - 1);
+                }
+            // blend the barrel into the disc
+            translate([0, 0, cap_h - 3]) cylinder(h = 1.2, d1 = sock_w + 2*cap_wall + 2, d2 = d);
+        }
+        // the keyed oval socket, open at the bottom (-Z)
+        translate([0, 0, -eps])
+            linear_extrude(sock_depth)
+                oval2d(sock_w, sock_d);
+        // a small chamfer at the socket mouth to guide the shaft in
+        translate([0, 0, -eps])
+            linear_extrude(1.0)
+                oval2d(sock_w + 1.2, sock_d + 1.2);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // ASSEMBLY
 // ---------------------------------------------------------------------------
 module cage() {
@@ -412,15 +465,18 @@ module cage() {
 //   "cage"      the main cage body
 //   "esp32_bar" ESP32 retention bar
 //   "dfp_bar"   DFPlayer retention bar
-//   "all"       everything, bars laid beside the cage (preview only)
+//   "joy_cap"   slim replacement joystick thumb-cap
+//   "all"       everything, small parts laid beside the cage (preview only)
 // ---------------------------------------------------------------------------
 part = "cage";
 
 if      (part == "cage")      cage();
 else if (part == "esp32_bar") esp32_bar();
 else if (part == "dfp_bar")   dfp_bar();
+else if (part == "joy_cap")   joy_cap();
 else if (part == "all") {
     cage();
     translate([-W, -D, 0]) esp32_bar();
     translate([-W, -D-15, 0]) dfp_bar();
+    translate([-W, -D-30, 0]) joy_cap();
 }

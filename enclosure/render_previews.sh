@@ -25,11 +25,13 @@ render () {
 render cage_final.png  "0,0,48,62,0,25,430"  cage.scad
 render cage_back.png   "0,0,48,62,0,205,430" cage.scad
 
-# Retention bars (separate printed parts).
+# Retention bars + slim joystick cap (separate printed parts).
 "$SCAD" -o previews/esp32_bar.png --imgsize=600,300 -D 'part="esp32_bar"' \
   --viewall --autocenter --colorscheme="$SCHEME" cage.scad
 "$SCAD" -o previews/dfp_bar.png   --imgsize=600,300 -D 'part="dfp_bar"' \
   --viewall --autocenter --colorscheme="$SCHEME" cage.scad
+"$SCAD" -o previews/joy_cap.png   --imgsize=600,500 -D 'part="joy_cap"' \
+  --camera=0,0,4,60,0,30,55 --projection=perspective --colorscheme="$SCHEME" cage.scad
 
 # Back-wall board layout map (collision check).
 "$SCAD" -o previews/layout_backwall.png --imgsize=800,1000 \

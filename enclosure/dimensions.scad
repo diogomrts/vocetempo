@@ -150,8 +150,12 @@ joy_throw_a     = 23;     // stick tilt half-angle [measured, ~12.5mm cap sweep]
 joy_slim_cap_d  = 16.0;   // printed replacement thumb-cap diameter
 joy_use_tilt    = 11;     // effective tilt clearance in the panel (d-pad use)
 joy_panel_open  = 20.0;   // resulting panel opening dia (slim cap + swing + clr)
-joy_shaft_d     = 4.0;    // stock stick shaft dia under the cap [TODO measure]
-joy_shaft_len   = 6.0;    // shaft length available for the cap socket [TODO measure]
+// Stock shaft under the rubber cap: an OVAL/double-flat post (a ~4mm cylinder with
+// two flats bringing it to 3mm across the flats). The printed cap's socket matches
+// this so it press-fits AND keys against rotation. [MEASURED: 3.0 x 4.0 x 5.95 tall]
+joy_shaft_w     = 3.0;    // shaft, across the flats  [measured]
+joy_shaft_d     = 4.0;    // shaft, across the round  [measured]
+joy_shaft_len   = 5.95;   // shaft length above the gimbal (socket depth) [measured]
 // 4 mounting holes forming a near-square, offset toward the pin-header edge (so
 // they look uneven per-corner but are a clean rectangle). Confirmed by caliper.
 joy_hole_dx     = 19.85;  // horizontal centre-to-centre [measured]
