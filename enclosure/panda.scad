@@ -7,8 +7,16 @@
 // has an embossed screen rectangle and a round knob on the belly, and a big
 // round head - we cut real openings through those features.
 //
-// Coordinate frame (after scale): feet on Z=0, upright. The BELLY/FACE is +Y
-// (it bulges to +Y; the back at -Y is smooth). +X right.
+// Coordinate frame (AFTER the reorientation below): feet on Z=0, upright, the
+// BELLY/FACE (eyes, nose, embossed screen plaque + round joystick knob, and the
+// folded arms) is at +Y; the smooth back is at -Y. +X right.
+//
+// !!! ORIENTATION FIX !!!  In the RAW sculpt the belly/face is actually at -Y and
+// the smooth back at +Y (verified by a +Y marker landing on the smooth back).
+// Earlier code assumed "belly = +Y" and cut the screen/joystick openings on the
+// smooth BACK by mistake. panda_raw() now reorients the sculpt (180 deg about Z +
+// a Y shift) so the belly lands at +Y, matching the rest of the code. The screen
+// plaque sits at panda Z~46, the knob at Z~20, both on the +Y belly.
 //
 // The electronics cage (cage.scad) enters from the BASE and its front face sits
 // just behind the belly. This file only shapes the BODY; cage.scad is separate.
@@ -17,15 +25,20 @@
 include <dimensions.scad>
 include <helpers.scad>
 
-// ---- Import + scale --------------------------------------------------------
+// ---- Import + scale + REORIENT ---------------------------------------------
 // STL is in normalized units (~0.96 tall); scale to panda_h mm.
 // Full-res original mesh (500k tris). Requires OpenSCAD's MANIFOLD backend
 // (--backend=Manifold, OpenSCAD 2023+); the old CGAL backend can't boolean this
 // in reasonable time. No decimation - full detail preserved.
+// The rotate+translate reflects the belly from -Y to +Y (about Y=13); the 180deg
+// spin also mirrors X, which is harmless (the panda is left-right symmetric and
+// the mirrored plaque text is cut away). Keep this transform in ONE place -
+// anything that imports the raw sculpt must go through panda_raw().
 panda_stl = "panda/panda_original.stl";
 
 module panda_raw() {
-    scale(panda_scale) import(panda_stl, convexity = 10);
+    translate([0, 26, 0]) rotate([0, 0, 180])
+        scale(panda_scale) import(panda_stl, convexity = 10);
 }
 
 // ---- Opening placements (belly is +Y) --------------------------------------
@@ -101,48 +114,27 @@ module panda_head_vents() {
 
 // ---- Hollowing -------------------------------------------------------------
 // The body only needs to be hollow WHERE THE CAGE SITS - not a uniform thin
-// shell (scaling the mesh down breaks thin features like the ears). So the
-// cavity is a rounded prism sized to the cage + wiring clearance.
+// shell (scaling the mesh down breaks thin features like the ears).
 //
-// CRITICAL FIX (this session - the "shoulder holes"): the old cavity was a tall
-// box (cage_h+6, reaching panda Z~94) at full 81mm width the whole way up. Above
-// the belly peak (~Z35) the torso NARROWS and the folded arms leave a thin-walled
-// ARMPIT gap (chest surface recedes to Y~-15..-36 there). A full-width/full-height
-// box punched through that thin armpit wall -> orange holes at the shoulders, and
-// its front-top corner also pierced the chest below the chin.
-//
-// FIX: a TAPERED cavity - full size low down (houses the wide OLED + boards), then
-// tapering NARROWER and shallower toward the top so the walls stay inside the
-// narrowing torso and never reach the armpit gaps. Verified hole-free by render.
-// The OLED PCB's two TOP corners (bare PCB, header is on the bottom edge) clip the
-// tapered top by ~2mm and get a small chamfer at assembly (see docs/ASSEMBLY).
-// The speaker still reaches the head via the neck bore, so the cavity needn't go
-// higher than the cage.
-// The cage is now DEEP (reaches the belly), so the cavity is a deep prism centred
-// at cage_yc. It still TAPERS narrower toward the top to stay clear of the armpit
-// thin-walls (the shoulder-hole fix). The front face sits ~3mm behind the belly
-// wall the window pierces; the back stays clear of the torso rear.
-cav_clear   = 3;          // clearance around the cage inside the cavity
-cav_z_lo    = -1;         // start just below the base plane (open hatch)
-cav_z_mid   = 46;         // full-size up to here (clears OLED lit area + boards)
-cav_z_hi    = 64;         // tapered top (~OLED PCB top; below the armpit thin wall)
-cav_lo_hw   = (cage_w + 2*cav_clear)/2;   // lower half-width (X) ~40.5
-cav_lo_dep  = cage_d + 2*cav_clear;       // lower depth  (Y)  ~86
-cav_up_hw   = 31;         // upper half-width (X) - armpit-safe [render-tuned]
-cav_up_dep  = 34;         // upper depth (Y) - armpit-safe      [render-tuned]
-cav_cy      = cage_yc;    // cavity Y centre = cage centre (deep, reaches belly)
+// The cavity is now built from the SAME shell_prof as the cage (dimensions.scad),
+// inflated by cav_clear, then placed exactly where the cage lives (spun 180 about
+// Z, set at cage_yc / cage_z0). So the cavity is guaranteed to contain the cage
+// with a uniform slide-in gap, and - because the cage profile itself was solved
+// to clear the panda skin - the cavity stays (just) inside the skin too, instead
+// of punching the old "shoulder/armpit" holes. The speaker reaches the head via
+// the neck bore, so the cavity needn't go higher than the cage.
+cav_clear = 1.0;                     // slide-in gap between cage and cavity walls
 module panda_cavity() {
-    // hull a wide lower slab into a narrower upper slab -> smooth inward taper.
-    // The taper narrows in X and Y toward the top; the upper slab is pulled toward
-    // the belly (front) since the boards+armpit issue is lower/rear.
-    hull() {
-        translate([0, cav_cy, cav_z_lo])
-            linear_extrude(cav_z_mid - cav_z_lo)
-                offset(r = 4) square([2*cav_lo_hw - 8, cav_lo_dep - 8], center = true);
-        translate([0, cav_cy + (cav_lo_dep - cav_up_dep)/2, cav_z_hi - 0.1])
-            linear_extrude(0.1)
-                offset(r = 4) square([2*cav_up_hw - 8, cav_up_dep - 8], center = true);
-    }
+    translate([0, cage_yc, cage_z0])
+        rotate([0, 0, 180])
+            // shell body inflated by cav_clear (negative shrink), extended a bit
+            // BELOW its base so the underside opens into the base hatch.
+            union() {
+                shell_stack(shell_prof, -cav_clear);
+                translate([0, 0, -(cage_z0 + 2)])
+                    linear_extrude(cage_z0 + 2 + 0.1)
+                        shell_section(shell_prof[0][1], shell_prof[0][2], -cav_clear);
+            }
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------

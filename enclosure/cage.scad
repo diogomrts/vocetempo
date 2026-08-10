@@ -25,8 +25,8 @@ include <helpers.scad>
 
 // ---- Local shorthands ------------------------------------------------------
 W  = cage_w;        // 75  outer width  (X)
-H  = cage_h;        // 89  outer height (Z)
-D  = cage_d;        // 38  outer depth  (Y)
+H  = cage_h;        // 78  outer height (Z)
+D  = cage_d;        // 60  outer depth  (Y)
 t  = sled_wall;     // 2.0 cage wall thickness
 eps = 0.01;         // tiny overlap so booleans cut cleanly
 
@@ -39,38 +39,31 @@ IH = H - t;         // base is OPEN, so only the top eats a wall
 // Back  wall is the plane y = +D/2.
 
 // ---------------------------------------------------------------------------
-// SHELL: a box open on the bottom (base hatch). Front & back walls, two sides,
-// and a top. Corners rounded on the vertical edges.
+// SHELL: a box open on the bottom (base hatch). It is built from shell_prof
+// (dimensions.scad) via shell_stack (helpers.scad): a W x D rectangular cross
+// section that is FLAT and FULL through the whole board-mounting zone, and only
+// chamfered at the corners near the feet (low) and the shoulders/arms (high).
+// This is what keeps every mounting boss backed by a real, flat wall (a plain
+// box poked its corners through the round panda; a naive taper moved the walls
+// away from the bosses so they floated - both are fixed here).
 //
-// TOP TAPER: the panda torso is ROUND and NARROWS at the shoulders, so a plain
-// box's top corners poke through (torso diagonal radius drops to ~40mm at Z72 vs
-// the cage's ~53mm corner). Above z=taper_z the shell tapers to a smaller top
-// PLATFORM (taper_w x taper_d) that still clears the speaker (ear bosses span
-// 63.6mm, diagonal 33.5 from centre < torso 43) but tucks the corners inside the
-// shoulders. The tall boards only reach ~Z66, and the platform is shifted slightly
-// toward the belly (-Y, taper_dy) where the torso has more room. [Fit-check tuned.]
-taper_z   = 62;     // shell is full W x D up to here, then tapers to the platform
-taper_w   = 70;     // top platform width  (X) - clears the 63.6mm ear-boss span
-taper_d   = 50;     // top platform depth  (Y)
-taper_dy  = -6;     // platform Y-shift (toward belly, where the torso is deeper)
+// shell_solid(shrink, ztop): the FILLED shell body (cavity not removed), inset by
+// `shrink` and clipped to height `ztop`. shrink=0 is the outer surface; shrink=t
+// is the inner surface used to carve the wall. It doubles as the "is this inside
+// the shell?" oracle used to clip the bosses (see cage()).
+module shell_solid(shrink = 0, ztop = H) {
+    intersection() {
+        shell_stack(shell_prof, shrink);
+        translate([-200, -200, -50]) cube([400, 400, 50 + ztop]);
+    }
+}
+
 module cage_shell() {
     difference() {
-        // outer solid: hull a full-size lower prism into a smaller top platform.
-        hull() {
-            // lower prism (full W x D) from base to taper_z
-            for (sx=[-1,1], sy=[-1,1])
-                translate([sx*(W/2-corner_r), sy*(D/2-corner_r), taper_z/2])
-                    cylinder(h=taper_z, r=corner_r, center=true);
-            // top platform (smaller, shifted toward belly) at z=H
-            for (sx=[-1,1], sy=[-1,1])
-                translate([sx*(taper_w/2-corner_r),
-                           taper_dy + sy*(taper_d/2-corner_r), H - eps])
-                    cylinder(h=2*eps, r=corner_r, center=true);
-        }
-
-        // hollow out the inside (open at the base: subtract from z=-eps up)
-        translate([0, 0, IH/2 - eps])
-            cube([IW, ID, IH + 2*eps], center=true);
+        shell_solid(0, H);                       // outer
+        // interior: same shape inset by the wall thickness, dropped below the base
+        // (open hatch) and capped t below the top (leaves the top wall).
+        translate([0, 0, -2*eps]) shell_solid(t, H - t);
     }
 }
 
@@ -82,27 +75,34 @@ module cage_shell() {
 // body-side partner metal-to-metal. Pocket depth = magnet_t (flush).
 // ---------------------------------------------------------------------------
 rim_h = magnet_t + 1.2;     // flange thickness: magnet depth + a little backing
-rim_w = 6;                  // how far the flange sticks out around the base
-// The DEEP cage reaches the belly, but the panda base has no seating surface at the
-// belly FRONT (the belly curves up and away). So the flange only extends outward at
-// the BACK and SIDES (which sit over solid body base); at the front it stays flush
-// with the cage wall. flange_yf/flange_yb are the flange's front/back reach in the
-// cage frame (front is -Y). [Fit-check: front magnets at the full skirt landed
-// OUTSIDE the body; pulled the front reach in.]
-flange_yf = D/2;            // FRONT reach (belly side): flush, no outward rim
-flange_yb = D/2 + rim_w;    // BACK reach: full outward rim (seats on body base)
-flange_xw = W/2 + rim_w;    // SIDE reach
+// At the base the panda's FEET/paws stick forward on the BELLY (front, cage -Y) -
+// lots of solid base there - while the RUMP (back, cage +Y) recedes and narrows.
+// So the flange puts its full outward rim + magnets on the FRONT (feet) and SIDES,
+// and pulls the BACK edge IN to follow the rump (no back rim). flange_* are cage-
+// frame reaches (front = -Y). [Breach fit-check against the reoriented base skin.]
+front_rim = 4;              // outward rim at the FRONT (over the feet base)
+side_rim  = 3;              // outward rim on the SIDES
+back_pull = 8;              // pull the BACK edge IN (rump recedes at the base)
+back_xw   = 24;             // back edge half-width (the rump narrows)
+flange_xw = W/2 + side_rim;      // SIDE reach
+front_yf  = -(D/2 + front_rim);  // FRONT (feet) reach, cage -Y (outward)
+back_yb   = D/2 - back_pull;      // BACK (rump) edge, pulled IN
 
 module base_flange() {
     difference() {
         translate([0, 0, rim_h/2])
             hull() {
-                // back two corners (full rim) and front two corners (flush)
+                // front two corners (full rim, over the feet)
                 for (sx=[-1,1])
-                    translate([sx*(flange_xw-corner_r), flange_yb-corner_r, 0])
+                    translate([sx*(flange_xw-corner_r), front_yf + corner_r, 0])
                         cylinder(h=rim_h, r=corner_r, center=true);
+                // side mid points (full side rim) where the side magnets sit
                 for (sx=[-1,1])
-                    translate([sx*(W/2-corner_r), -(flange_yf-corner_r), 0])
+                    translate([sx*(flange_xw-corner_r), 0, 0])
+                        cylinder(h=rim_h, r=corner_r, center=true);
+                // back two corners (pulled IN, follows the receding rump)
+                for (sx=[-1,1])
+                    translate([sx*(back_xw-corner_r), back_yb - corner_r, 0])
                         cylinder(h=rim_h, r=corner_r, center=true);
             }
         // keep the interior open (don't block the hatch)
@@ -112,14 +112,15 @@ module base_flange() {
 }
 
 // 4 magnet pockets, open from the base (-Z), flush top. Placed where the flange
-// sits over SOLID body base: the two BACK corners, and two on the SIDES pulled
-// forward to mid-depth (not at the belly-front, which has no body to seat on).
+// sits over SOLID body base: the two FRONT corners (over the feet) and two on the
+// SIDES. Centres are inset from the outer flange edge so the pocket wall stays intact.
 mag_side_y = 0;             // side magnets at mid-depth (cage frame)
+mag_inset  = 3;            // pocket-centre inset from the outer flange edge
 module magnet_pockets() {
-    pts = [[ flange_xw - rim_w/2,  flange_yb - rim_w/2],   // back-right
-           [-flange_xw + rim_w/2,  flange_yb - rim_w/2],   // back-left
-           [ flange_xw - rim_w/2,  mag_side_y],            // side-right
-           [-flange_xw + rim_w/2,  mag_side_y]];           // side-left
+    pts = [[ flange_xw - mag_inset,  front_yf + mag_inset],   // front-right (foot)
+           [-flange_xw + mag_inset,  front_yf + mag_inset],   // front-left  (foot)
+           [ flange_xw - mag_inset,  mag_side_y],             // side-right
+           [-flange_xw + mag_inset,  mag_side_y]];            // side-left
     for (p = pts)
         translate([p[0], p[1], magnet_t/2 - eps])
             cylinder(h = magnet_t + 2*eps, d = magnet_d - 2*magnet_fit, center=true);
@@ -135,8 +136,8 @@ front_y      = -D/2;                 // outer plane of the front wall
 // OLED and joystick CENTRES come from dimensions.scad (single source of truth):
 // oled_cz / joy_cz are DERIVED there from dev_oled_pz / dev_joy_pz and cage_z0 so
 // that cage-internal Z + cage_z0 = panda Z. With the current values the devices
-// land at panda Z44 (OLED window) and Z16 (joystick) - on the sculpted screen and
-// knob. Spacing is dev_sep = 28mm (a ~4mm bridge between the two openings).
+// land at panda Z46 (OLED window, on the screen plaque) and Z20 (joystick, on the
+// round knob) - on the BELLY (+Y after the panda.scad reorientation).
 // The joystick PCB overlaps behind the OLED PCB's lower dead-space (OLED lit area
 // is only 28mm of the 46.6mm board, sitting +3.1 above centre); the two PCBs mount
 // at DIFFERENT depths (short OLED standoffs, taller joystick standoffs) so they
@@ -185,20 +186,21 @@ module oled_standoffs() {
 
 // ---------------------------------------------------------------------------
 // JOYSTICK: a TILT CONE through the front wall (not a straight bore) so the
-// stick can lean at joy_throw_a without the 26mm flange fouling the wall, plus
-// four standoffs on the 19.85 x 19.8 / Ø3.2 pattern.
+// stick can lean without fouling the wall, plus four standoffs on the
+// 19.85 x 19.8 / Ø3.2 pattern.
 //
-// Cone sizing: the flange (Ø joy_flange_d) lives at joy_flange_z above the PCB.
-// When the stick tilts by joy_throw_a about its pivot, the flange edge sweeps
-// out. We approximate the required opening at the wall as the flange radius
-// plus the lateral sweep of the flange over the wall-to-flange distance, then
-// flare the cone outward toward the front face.
+// SIZING: uses the SLIM PRINTED CAP design (joy_panel_open ~20mm, joy_use_tilt
+// ~11deg), NOT the stock 26mm cap - matching panda.scad's belly cut. (The old
+// code sized this cone for the stock 26mm flange at 23deg, giving a ~38mm hole
+// that collided with the OLED window above it and left no bridge in the front
+// wall.) The opening is joy_panel_open at the flange plane plus the small d-pad
+// swing, flared a touch toward the front face.
 // ---------------------------------------------------------------------------
 module joystick_cone_cut() {
-    // radius needed at the flange plane
-    r_inner = joy_flange_d/2 + fit_gap;
-    // extra lateral room from tilt: sweep ~ tan(angle) * (height of flange above pivot)
-    sweep   = tan(joy_throw_a) * joy_flange_z;
+    // radius needed at the panel plane for the slim cap
+    r_inner = joy_panel_open/2 + fit_gap;
+    // extra lateral room from the small d-pad tilt
+    sweep   = tan(joy_use_tilt) * joy_flange_z;
     r_outer = r_inner + sweep + fit_gap;
     // cone from just inside the wall (small) flaring to the front face (large)
     translate([0, front_y + t + eps, joy_cz])
@@ -219,8 +221,15 @@ module joystick_standoffs() {
 // - Four bosses receive the ear screws on the 63.6 x 21.2 / Ø3.2 pattern.
 // Speaker long axis (51.25 body, 69.5 tip-to-tip) runs along X; its 30.9 width
 // runs along Y. Ears extend on the long (X) axis only.
-// ---------------------------------------------------------------------------
-top_z = H;   // outer plane of the top wall
+//
+// The whole speaker is shifted spk_cy_off toward the BELLY (-Y). Reason: the top
+// necks IN at the back for the panda's folded arms; if the speaker stayed centred,
+// its rear ears would need the top to flare back OUT (an outward-pointing overhang
+// tab - the "pointy protrusions"). Nudging the speaker forward lets BOTH ear rows
+// sit inside a top that necks in monotonically, so no tabs are needed.
+top_z = H;          // outer plane of the top wall
+spk_cy_off = 8;     // speaker Y-centre, shifted toward the BACK (+Y) so its ears
+                    // clear the big FRONT chamfer that relieves the belly/arms
 
 // A stadium (rectangle + semicircular ends) profile in the XY plane.
 module stadium(len, wid) {
@@ -229,7 +238,7 @@ module stadium(len, wid) {
 }
 
 module speaker_throat_cut() {
-    translate([0, 0, top_z - t/2])
+    translate([0, spk_cy_off, top_z - t/2])
         linear_extrude(height = t + 4, center = true)
             stadium(spk_grille_l + fit_gap, spk_grille_w + fit_gap);
 }
@@ -244,7 +253,7 @@ module top_boss() {
 
 module speaker_bosses() {
     for (sx=[-1,1], sy=[-1,1])
-        translate([sx*spk_ear_dx/2, sy*spk_ear_dy/2, 0])
+        translate([sx*spk_ear_dx/2, spk_cy_off + sy*spk_ear_dy/2, 0])
             top_boss();
 }
 
@@ -299,19 +308,23 @@ module retention_bosses(cx, cz, span, vertical=false) {
 // keep-out band; RTC upper-right; DFPlayer far-right-low, clear of the joystick
 // X band. USB-C (ESP32) and SD (DFPlayer) edges both point DOWN to the base.
 
-// ---- ESP32: portrait, LEFT full-height, USB-C down -------------------------
+// ---- ESP32: portrait, LEFT, USB-C down -------------------------------------
 // board 53.2 tall (Z) x 28.4 wide (X). USB-C at the bottom edge -> exits base.
-// In the shorter (78mm) cage it spans most of the left wall, clear of the
-// right-side RTC/DFPlayer and (in Y) behind the shallow joystick.
+// esp_cz is pulled DOWN and the retention span kept just INSIDE the board ends so
+// the TOP retention boss lands ~Z60 - inside the flat board zone, NOT up in the
+// shoulder taper where it used to float. The bar then sits ~2mm onto each board
+// end (clear of the central components).
 esp_cx = -W/2 + t + 2 + esp_h/2;     // hug the left inner wall  (~ -19.3)
-esp_cz = H/2;                        // centred vertically on the left
+esp_cz = 35;                         // lowered so the top boss stays in the flat zone
 module esp32_mount() {
-    retention_bosses(esp_cx, esp_cz, esp_w + 8, vertical=true);
+    retention_bosses(esp_cx, esp_cz, esp_w - 4, vertical=true);   // bosses just inside the ends
 }
 
-// ---- RTC: top-right, 3 measured holes --------------------------------------
+// ---- RTC: upper-right, 3 measured holes ------------------------------------
+// Lowered so its top mounting hole stays in the flat board zone (below the
+// shoulder chamfer that starts ~Z60), not up in the necked-in top.
 rtc_cx = W/2 - t - 2 - rtc_w/2;      // hug the right inner wall
-rtc_cz = H - 8 - rtc_h/2;
+rtc_cz = 50;                         // was H-8-rtc_h/2 (=59, too high)
 module rtc_mount() {
     holes = [[rtc_hole1_x, rtc_hole1_y],
              [rtc_hole2_x, rtc_hole2_y],
@@ -444,13 +457,25 @@ module cage() {
     difference() {
         union() {
             cage_shell();
-            base_flange();
-            oled_standoffs();
-            joystick_standoffs();
-            speaker_bosses();
-            esp32_mount();
-            rtc_mount();
-            dfp_mount();
+            base_flange();          // flange sticks OUT past the shell by design
+            // All wall-mounted bosses are CLIPPED to the outer shell so none can
+            // ever protrude past a wall or float outside it (a boss in the cavity
+            // is fully inside shell_solid(0), so it is kept; only stray material
+            // outside the outer surface is trimmed). This is the safety net that
+            // guarantees "no screw holes outside the box"; the shell profile above
+            // already ensures every board's bosses land on a flat wall so their
+            // heights stay consistent.
+            intersection() {
+                union() {
+                    oled_standoffs();
+                    joystick_standoffs();
+                    speaker_bosses();
+                    esp32_mount();
+                    rtc_mount();
+                    dfp_mount();
+                }
+                shell_solid(0, H);
+            }
         }
         oled_window_cut();
         joystick_cone_cut();

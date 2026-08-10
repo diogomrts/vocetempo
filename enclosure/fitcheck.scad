@@ -49,8 +49,10 @@ else if (mode == "section") {
 }
 else if (mode == "breach") {
     // cage material OUTSIDE the panda solid = a fit problem. Ideally empty.
+    // Use the REORIENTED raw sculpt (panda_raw), same as panda.scad, so the belly
+    // is at +Y - otherwise this test would check against the wrong side.
     difference() {
         placed_cage();
-        scale(panda_scale) import("panda/panda_original.stl", convexity = 10);
+        panda_raw();
     }
 }

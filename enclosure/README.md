@@ -17,11 +17,18 @@ be opened to service the clock.
 
 ## The cage (`cage.scad`)
 
-A box, 75 x 96 x 38 mm, open at the base (the "service side"):
+A box, 75 (W) x 78 (H) x 60 (D) mm, open at the base (the "service side").
+Its cross-section (defined by `shell_prof` in `dimensions.scad`) is a rectangle
+that stays FLAT and FULL through the whole board-mounting zone - so every module's
+bosses land on a real, flat wall - and is only chamfered at the CORNERS where
+there are no features: low down (the feet) and up high (the shoulders / folded
+arms). That is how it follows the round panda without either spearing its corners
+through the skin OR moving the walls away from the mounting bosses (verified by
+the `breach` fit-check and by clipping every boss to the shell - see below):
 
 - **Front face:** OLED window (at the true 55 x 28 lit area, offset +3.1 mm up)
-  above a joystick tilt-cone (flared for the 23 deg throw, clears the 26 mm
-  flange). Both boards screw to printed standoffs.
+  above a joystick tilt-cone (sized for the slim printed cap). Both boards screw
+  to printed standoffs on the flat front wall.
 - **Top face:** stadium-shaped throat firing UP into the panda's head (the head
   is the acoustic resonator); four bosses for the boxed speaker's ears.
 - **Back wall:** RTC on its 3 real holes; ESP32 (portrait) and DFPlayer screw
@@ -46,6 +53,28 @@ cd enclosure
 ```
 
 Or open `cage.scad` in the OpenSCAD GUI and press F5 (preview) / F6 (render).
+
+## Fit-check (does the cage fit inside the panda?)
+
+`fitcheck.scad` seats the cage inside the hollowed body. Its `breach` mode outputs
+ONLY the cage material sticking OUT of the panda - it should be effectively empty:
+
+```sh
+# should render to (near-)nothing; any large solid = the cage breaches the skin
+openscad --backend=Manifold -o /tmp/breach.stl -D 'mode="breach"' fitcheck.scad
+openscad --backend=Manifold -D 'mode="ghost"'   fitcheck.scad   # visual overlay
+openscad --backend=Manifold -D 'mode="section"' fitcheck.scad   # X=0 cross-section
+```
+
+The cage cross-section (`shell_prof`, 60 mm depth, corner-only relief) was tuned
+against a per-Z map of the raw panda skin so it clears the surface with ~1 mm to
+spare. Residual "breach" is limited to sub-millimetre slivers at the base-flange
+rim (the flange *seating* against the body base) and at the top side corners where
+the folded arms pinch hardest - thin spots, not open holes.
+
+Separately, `part="cage"` clips every mounting boss to the shell, so no standoff
+can float outside or poke through a wall (this was a real earlier bug). The board
+zone is kept flat-walled so all of a board's standoffs stay the same height.
 
 ## Measurements
 

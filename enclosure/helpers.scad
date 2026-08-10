@@ -43,7 +43,9 @@ module oled_window(depth = 10) {
 
 // A simple grille: a hex-ish grid of holes across a circle of diameter d.
 // Cuts along +Y (depth through the belly wall).
-module speaker_grille(d = spk_grille_d, depth = 10, hole_d = 3, gap = 5) {
+// NOTE: unused by the current design (the speaker fires up a stadium throat, not
+// through a round belly grille). Kept as a utility; pass an explicit `d`.
+module speaker_grille(d = spk_grille_l, depth = 10, hole_d = 3, gap = 5) {
     rotate([90, 0, 0])
     translate([0, 0, -depth/2])
     linear_extrude(height = depth)
@@ -65,5 +67,42 @@ module screw_boss(h) {
     difference() {
         cylinder(h = h, d = screw_boss_d);
         translate([0, 0, 1]) cylinder(h = h, d = screw_hole_d);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SHELL CROSS-SECTION (shared by the cage box and the panda cavity).
+//
+// A cage_w x cage_d rectangle (front at -Y = -cage_d/2, back at +Y) whose FRONT
+// corners are chamfered by `cf` and BACK corners by `cb`. `shrink` insets every
+// face inward (used to carve the wall / to inflate the cavity with a negative
+// value). See shell_prof in dimensions.scad for how cf/cb vary with height and
+// why. Keeping this in ONE place stops the box and the cavity from drifting.
+// ---------------------------------------------------------------------------
+module shell_section(cf, cb, shrink = 0) {
+    hw = cage_w/2 - shrink;
+    fy = -cage_d/2 + shrink;          // front (belly) face, -Y
+    by =  cage_d/2 - shrink;          // back face, +Y
+    cfx = min(max(cf - shrink, 0), hw - 1);
+    cbx = min(max(cb - shrink, 0), hw - 1);
+    polygon([[ hw - cfx, fy], [ hw, fy + cfx],
+             [ hw, by - cbx], [ hw - cbx, by],
+             [-hw + cbx, by], [-hw, by - cbx],
+             [-hw, fy + cfx], [-hw + cfx, fy]]);
+}
+
+// The full SOLID shell body (filled, not hollow) built by lofting the chamfered
+// section between successive profile rows. `shrink` insets it (0 = outer surface,
+// wall thickness = inner shrink). Spans Z from profile[0] to the last row.
+module shell_stack(profile, shrink = 0) {
+    seg_eps = 0.02;
+    for (i = [0 : len(profile) - 2]) {
+        z0 = profile[i][0];   z1 = profile[i+1][0];
+        hull() {
+            translate([0, 0, z0]) linear_extrude(seg_eps)
+                shell_section(profile[i][1],   profile[i][2],   shrink);
+            translate([0, 0, z1]) linear_extrude(seg_eps)
+                shell_section(profile[i+1][1], profile[i+1][2], shrink);
+        }
     }
 }

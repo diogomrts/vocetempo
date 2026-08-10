@@ -44,13 +44,18 @@ render cage_back.png   "0,0,48,62,0,205,430" cage.scad
   --camera=0,0,0,72,0,8,0 --viewall --autocenter --projection=perspective \
   --colorscheme="$SCHEME" panda.scad
 
-# Integration fit-check: cage seated in the panda (ghost + section).
+# Integration fit-check: cage seated in the panda (ghost + section + breach).
 "$SCAD" --backend=Manifold -o previews/fitcheck.png --imgsize=700,900 \
   --camera=0,0,0,68,0,25,0 --viewall --autocenter --projection=perspective \
   --colorscheme="$SCHEME" fitcheck.scad
 "$SCAD" --backend=Manifold -o previews/fitcheck_section.png --imgsize=700,900 \
   --camera=0,0,0,90,0,90,0 --viewall --autocenter --projection=orthogonal \
   --colorscheme="$SCHEME" -D 'mode="section"' fitcheck.scad
+# breach: cage material OUTSIDE the body - should be (near-)empty. Any large blob
+# here means the cage pokes through the panda skin (regression check).
+"$SCAD" --backend=Manifold -o previews/fitcheck_breach.png --imgsize=700,900 \
+  --camera=0,0,0,68,0,25,0 --viewall --autocenter --projection=perspective \
+  --colorscheme="$SCHEME" -D 'mode="breach"' fitcheck.scad
 
 echo "Done. See enclosure/previews/*.png"
 echo "Panda body STL: openscad --backend=Manifold -o stl/panda_body.stl panda.scad"

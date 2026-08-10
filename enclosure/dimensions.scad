@@ -228,40 +228,51 @@ cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
 cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
                           //   (devices overlap in Z at different depths to fit
                           //   the panda belly); OLED top ~62 + speaker margin
-// DEPTH (Y): the panda belly BULGES ~86mm forward of the body centre. A shallow
-// cage would leave the OLED at the bottom of a deep dark tunnel. So the cage is
-// DEEP: its front face (OLED/joystick) sits just behind the belly surface while the
-// back wall (ESP32/RTC/DFPlayer) sits near the torso's rear. The torso has room
-// (~95-107mm deep through the cage region). [Integration fit-check, this session.]
-cage_d          = 80;     // outer depth  (Y) - reaches the belly (was 38; tunnel)
+// DEPTH (Y): the panda torso is ROUND, so a deep rectangular cage pokes its
+// front/back CORNERS out through the belly and shoulders (the old cage_d=80 with
+// square-ish corners breached the skin at nearly every Z - confirmed by the
+// breach fit-check). The mesh was re-analysed this session (raw skin -> per-Z
+// angular radius map): the usable window is front belly ~Y44 at the corners, back
+// ~Y-16, ~75 wide, necking in toward the top where the arms fold. Depth only needs
+// ~45mm internally (front stack ~19 + back stack ~21 + wiring), so 60mm outer is
+// roomy AND fits the round torso. The corner relief that makes it fit is captured
+// in shell_prof (below) - a per-height chamfer that keeps the walls FLAT where the
+// boards mount and only trims the feature-free corners.
+cage_d          = 60;     // outer depth  (Y) - was 80 (corners breached the belly)
 cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
 // The cage front (belly) face lands at this PANDA Y. Belly surface over the window
-// is Y~61..67; the front face sits ~7-13mm behind, leaving a belly wall the window
-// pierces (a shallow recessed screen). Cage back then lands at Y-26 (front - depth),
-// clear of the torso rear (~Y-28..-40).
+// is Y~64-67 at centre but only ~48-50 at the corners; the rounded front face sits
+// just inside it, leaving a thin belly wall the window pierces (a shallow recessed
+// screen). Cage back then lands at Y-16, clear of the folded arms.
 // PLACEMENT: cage.scad's own frame has the OLED front at -Y, so in the panda the
 // cage is ROTATED 180 about Z, then translated:
 //     translate([0, cage_yc, cage_z0]) rotate([0,0,180]) cage();
 // After the 180 spin, the cage front (-D/2) maps to +D/2, i.e. panda Y cage_yfront.
-cage_yfront     = 54;     // panda Y of the cage FRONT (belly) outer face
-cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 14)
+cage_yfront     = 42;     // panda Y of the cage FRONT (belly) outer face
+cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 12)
+// The cross-section shape (which corners are chamfered, and by how much, per
+// height) is defined by shell_prof further down - a single source of truth shared
+// by cage.scad (the box) and panda.scad (the cavity).
 
 // ---- SINGLE SOURCE OF TRUTH for device placement (panda Z + cage Z) ----------
 // The panda sculpt was MESH-ANALYSED this session (orthographic front render with
 // 2mm Z markers + depth-deviation map): the embossed screen plaque centres at
 // panda Z~40 and the round belly knob at panda Z~20, only ~20mm apart. But the
-// OLED lit window is 28mm tall and the slim-cap joystick opening ~20mm, so the two
-// PANEL OPENINGS need >=28mm centre-to-centre (for a ~4mm bridge) - they CANNOT
-// both sit dead-centre on the sculpt. DECISION (user): spread them symmetrically
-// about the feature midpoint (panda Z30) -> OLED window at panda Z44, joystick at
-// panda Z16. Each opening still lands on its sculpted feature; belly around them
-// is plain so the small offset reads fine.
+// OLED lit window is 28mm tall and the slim-cap joystick opening ~26mm (20mm panel
+// + tilt flare), so the two PANEL OPENINGS need ~32mm centre-to-centre to leave a
+// solid ~3mm wall BRIDGE between them - they CANNOT both sit dead-centre on the
+// sculpt. DECISION (user): spread them symmetrically about the feature midpoint
+// (panda Z30) -> OLED window at panda Z46, joystick at panda Z14. Each opening
+// still lands on its sculpted feature (drifts ~2mm); the belly around them is plain
+// so the small offset reads fine. [Was 44/16 = 28mm, which left NO bridge: the
+// joystick cone top and OLED window bottom overlapped at the centreline and the
+// front wall was cut clean through. Verified with a front-wall slab section.]
 //
 // Mapping rule: cage-internal Z + cage_z0 = panda Z. Both panda.scad and cage.scad
 // derive their cuts from these, so they can never drift apart again.
-dev_oled_pz     = 44;     // OLED lit-window centre, PANDA Z [on the screen plaque]
-dev_joy_pz      = 16;     // joystick opening centre, PANDA Z [on the knob]
-dev_sep         = dev_oled_pz - dev_joy_pz;   // = 28 (opening centre spacing)
+dev_oled_pz     = 46;     // OLED lit-window centre, PANDA Z [on the screen plaque]
+dev_joy_pz      = 20;     // joystick opening centre, PANDA Z [on the round knob]
+dev_sep         = dev_oled_pz - dev_joy_pz;   // = 26 (opening centre spacing)
 // Cage-frame centres (derived; used by cage.scad):
 //   window centre (lit area) = dev_oled_pz - cage_z0
 //   OLED PCB centre          = window centre - oled_active_dy  (lit sits +3.1 up)
@@ -276,6 +287,50 @@ screw_boss_d    = 6;      // outer diameter of a self-tap screw boss
 screw_hole_d    = 2.5;    // self-tap pilot hole (boss bites the screw; no insert)
 // NOTE: using self-tapping screws into printed bosses - NO heat-set inserts.
 corner_r        = 4;      // general rounding radius for a friendly look
+
+// ---- Shell cross-section profile (the "loaf" that fits the round panda) -------
+// The cage OUTER cross-section is a W x D rectangle whose FRONT and BACK corners
+// are chamfered by amounts that vary with height. This is the single source of
+// truth for the shell shape; BOTH cage.scad (the box) and panda.scad (the cavity
+// that must contain it) build from it, so they cannot drift.
+//
+// WHY: the panda torso is round AND its folded arms pinch the upper-BACK (worst
+// around cage Z70-74, easing again by the top where the speaker sits). A plain
+// box pokes its corners through the skin; a simple taper moves the walls away
+// from the board-mounting bosses (they ended up floating outside - the bug this
+// fixes). So the profile keeps FLAT, FULL walls through the whole board zone
+// (Z12..~60, where OLED/joystick/ESP/RTC/DFPlayer mount) and only chamfers the
+// corners where there are NO features: the feet (low front) and the shoulders/
+// arms (high front & back). Each [z, front_chamfer, back_chamfer] row is in the
+// cage frame (front = -Y). Values were solved against a per-Z angular map of the
+// raw panda skin so every point clears the surface (breach fit-check: ~1mm skin
+// at the tightest point). Speaker ears (near the Y centre) stay inside the top.
+// cf = FRONT (belly) corner chamfer, cb = BACK corner chamfer.
+// The folded arms pinch the BELLY (front, +Y) at Z~64-76, so the big chamfer is on
+// the FRONT now; the back only needs a little (shoulders) plus a small chamfer at
+// the base for the splayed feet/rump. Both cf and cb are monotonic non-decreasing
+// toward the top so the corners never flare back OUT (that flare is what made the
+// pointy tabs). Solved against the correctly-oriented belly skin (breach fit-check).
+shell_prof = [
+  // z    cf    cb
+  [ 0,    0,   13],   // base: rump/feet recede at the back -> back chamfer
+  [ 4,    0,    9],
+  [ 8,    0,    3],
+  [12,    0,    0],   // ---- full flat box through the board zone ----
+  [60,    0,    0],
+  [62,    8,    1],   // OLED top standoffs ~here; small chamfer (clip trims edges)
+  [63,   15,    2],   // belly pinches sharply above the OLED -> FRONT chamfer HARD
+  [64,   20,    3],
+  [65,   22,    4],
+  [66,   24,    5],
+  [67,   24,    6],
+  [68,   25,    8],
+  [70,   25,   10],   // belly/arm pinch worst -> deepest FRONT chamfer, then HELD
+  [72,   25,   12],
+  [74,   25,   13],
+  [76,   25,   13],
+  [78,   25,   13],
+];
 
 // ---- Rendering smoothness (higher = smoother, slower) ---------------------
 $fn = 48;
