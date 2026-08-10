@@ -40,16 +40,33 @@ IH = H - t;         // base is OPEN, so only the top eats a wall
 
 // ---------------------------------------------------------------------------
 // SHELL: a box open on the bottom (base hatch). Front & back walls, two sides,
-// and a top. Corners lightly rounded on the vertical edges for a friendlier
-// fit against the panda's inner shell.
-// ---------------------------------------------------------------------------
+// and a top. Corners rounded on the vertical edges.
+//
+// TOP TAPER: the panda torso is ROUND and NARROWS at the shoulders, so a plain
+// box's top corners poke through (torso diagonal radius drops to ~40mm at Z72 vs
+// the cage's ~53mm corner). Above z=taper_z the shell tapers to a smaller top
+// PLATFORM (taper_w x taper_d) that still clears the speaker (ear bosses span
+// 63.6mm, diagonal 33.5 from centre < torso 43) but tucks the corners inside the
+// shoulders. The tall boards only reach ~Z66, and the platform is shifted slightly
+// toward the belly (-Y, taper_dy) where the torso has more room. [Fit-check tuned.]
+taper_z   = 62;     // shell is full W x D up to here, then tapers to the platform
+taper_w   = 70;     // top platform width  (X) - clears the 63.6mm ear-boss span
+taper_d   = 50;     // top platform depth  (Y)
+taper_dy  = -6;     // platform Y-shift (toward belly, where the torso is deeper)
 module cage_shell() {
     difference() {
-        // outer solid, vertical edges rounded
-        translate([0, 0, H/2])
-            hull() for (sx=[-1,1], sy=[-1,1])
-                translate([sx*(W/2-corner_r), sy*(D/2-corner_r), 0])
-                    cylinder(h=H, r=corner_r, center=true);
+        // outer solid: hull a full-size lower prism into a smaller top platform.
+        hull() {
+            // lower prism (full W x D) from base to taper_z
+            for (sx=[-1,1], sy=[-1,1])
+                translate([sx*(W/2-corner_r), sy*(D/2-corner_r), taper_z/2])
+                    cylinder(h=taper_z, r=corner_r, center=true);
+            // top platform (smaller, shifted toward belly) at z=H
+            for (sx=[-1,1], sy=[-1,1])
+                translate([sx*(taper_w/2-corner_r),
+                           taper_dy + sy*(taper_d/2-corner_r), H - eps])
+                    cylinder(h=2*eps, r=corner_r, center=true);
+        }
 
         // hollow out the inside (open at the base: subtract from z=-eps up)
         translate([0, 0, IH/2 - eps])
