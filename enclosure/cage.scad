@@ -83,26 +83,46 @@ module cage_shell() {
 // ---------------------------------------------------------------------------
 rim_h = magnet_t + 1.2;     // flange thickness: magnet depth + a little backing
 rim_w = 6;                  // how far the flange sticks out around the base
+// The DEEP cage reaches the belly, but the panda base has no seating surface at the
+// belly FRONT (the belly curves up and away). So the flange only extends outward at
+// the BACK and SIDES (which sit over solid body base); at the front it stays flush
+// with the cage wall. flange_yf/flange_yb are the flange's front/back reach in the
+// cage frame (front is -Y). [Fit-check: front magnets at the full skirt landed
+// OUTSIDE the body; pulled the front reach in.]
+flange_yf = D/2;            // FRONT reach (belly side): flush, no outward rim
+flange_yb = D/2 + rim_w;    // BACK reach: full outward rim (seats on body base)
+flange_xw = W/2 + rim_w;    // SIDE reach
 
 module base_flange() {
     difference() {
-        // outward flange skirt at the base
         translate([0, 0, rim_h/2])
-            hull() for (sx=[-1,1], sy=[-1,1])
-                translate([sx*(W/2+rim_w-corner_r), sy*(D/2+rim_w-corner_r), 0])
-                    cylinder(h=rim_h, r=corner_r, center=true);
+            hull() {
+                // back two corners (full rim) and front two corners (flush)
+                for (sx=[-1,1])
+                    translate([sx*(flange_xw-corner_r), flange_yb-corner_r, 0])
+                        cylinder(h=rim_h, r=corner_r, center=true);
+                for (sx=[-1,1])
+                    translate([sx*(W/2-corner_r), -(flange_yf-corner_r), 0])
+                        cylinder(h=rim_h, r=corner_r, center=true);
+            }
         // keep the interior open (don't block the hatch)
         translate([0, 0, rim_h/2 - eps])
             cube([IW, ID, rim_h + 2*eps], center=true);
     }
 }
 
-// 4 magnet pockets, one per flange corner, open from the base (-Z), flush top.
+// 4 magnet pockets, open from the base (-Z), flush top. Placed where the flange
+// sits over SOLID body base: the two BACK corners, and two on the SIDES pulled
+// forward to mid-depth (not at the belly-front, which has no body to seat on).
+mag_side_y = 0;             // side magnets at mid-depth (cage frame)
 module magnet_pockets() {
-    for (sx=[-1,1], sy=[-1,1])
-        translate([sx*(W/2 + rim_w/2), sy*(D/2 + rim_w/2), magnet_t/2 - eps])
-            cylinder(h = magnet_t + 2*eps, d = magnet_d - 2*magnet_fit,
-                     center=true);
+    pts = [[ flange_xw - rim_w/2,  flange_yb - rim_w/2],   // back-right
+           [-flange_xw + rim_w/2,  flange_yb - rim_w/2],   // back-left
+           [ flange_xw - rim_w/2,  mag_side_y],            // side-right
+           [-flange_xw + rim_w/2,  mag_side_y]];           // side-left
+    for (p = pts)
+        translate([p[0], p[1], magnet_t/2 - eps])
+            cylinder(h = magnet_t + 2*eps, d = magnet_d - 2*magnet_fit, center=true);
 }
 
 // ---------------------------------------------------------------------------
