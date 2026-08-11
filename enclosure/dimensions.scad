@@ -206,6 +206,41 @@ magnet_d        = 5.0;    // disc diameter [measured]
 magnet_t        = 3.0;    // disc thickness [measured]
 magnet_fit      = 0.05;   // pocket undersize per side for a press fit (glue too)
 magnet_count    = 4;      // one near each corner of the base rim
+
+// ---- Base flange + where the magnet PAIRS actually meet -----------------------
+// The flange is the cage's foot: it seats in a REBATE counterbored into the panda's
+// base (panda_base_rebate()), and the pairs meet on the flange's TOP face - cage
+// magnet flush in the flange looking up, body magnet flush in the rebate ceiling
+// looking down, so the two faces touch with no plastic between them.
+//
+// The magnets HAVE to sit outboard of the base hatch: the hatch (|X|<=40.5,
+// Y -23..43 in panda coords) removes the body exactly where the old positions were,
+// so they had nothing to attract. Raycast of the base at the rebate ceiling (Z 6..9)
+// shows the solid ring outside the hatch is (a) a wide FRONT band at Y>=44 - the
+// cavity's front face stops at Y 40.35 and the feet run out to Y 62 - and (b) SIDE
+// bands at |X|>=42. The rump is useless: its skin is at Y -22..-26, so the hatch
+// already reaches it.
+// Positions below are in the CAGE frame; panda = (-cx, cage_yc - cy). Both pairs are
+// verified inside the skin from Z2 (the flange's underside) upward, with >=1.5mm of
+// wall around every pocket:
+//   front pair  cage (+-34, -40)  ->  panda (+-34, 50)  over the feet
+//   side  pair  cage (+-43, -16)  ->  panda (+-43, 26)  over the side collar
+// (a side pair at panda |X|44 was tried first and fails: still outside the skin at
+// Z2, because the base tapers in toward the floor.)
+rim_h           = magnet_t + 1.2;   // flange thickness: magnet depth + backing (4.2)
+front_rim       = 4;      // flange's outward rim at the FRONT (over the feet)
+side_rim        = 3;      // ... and on the SIDES
+back_pull       = 8;      // pull the BACK edge IN (the rump recedes at the base)
+back_xw         = 24;     // back edge half-width (the rump narrows)
+flange_xw       = cage_w/2 + side_rim;       // SIDE reach (40.5)
+front_yf        = -(cage_d/2 + front_rim);   // FRONT reach, cage -Y (-34)
+back_yb         = cage_d/2 - back_pull;      // BACK edge, pulled IN (22)
+mag_ear_r       = magnet_d/2 + 2.0;          // 4.5 - ear radius round a pocket
+mag_pos         = [[ 34, -40], [-34, -40],   // front pair (over the panda's feet)
+                   [ 43, -16], [-43, -16]];  // side pair  (over the side collar)
+// where each ear meets the flange proper (clamped to the cage's own footprint)
+mag_ear_root    = [[ 34, -cage_d/2], [-34, -cage_d/2],
+                   [ cage_w/2, -16], [-cage_w/2, -16]];
 // Steel-washer fallback kept in case the pair approach is dropped later.
 washer_d        = 12;     // steel washer outer diameter [unused]
 washer_t        = 1.2;    // [unused]

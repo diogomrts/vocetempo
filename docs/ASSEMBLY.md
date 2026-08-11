@@ -192,19 +192,27 @@ in `src/Buttons.cpp` - see the end of [`WIRING.md`](WIRING.md).
 
 ### Retention
 
-Magnets in the sled's rear corners, plain **steel washers** recessed into the
-body behind them. Using washers rather than a second set of magnets halves the
-parts and makes it impossible to get polarity wrong - a mistake that is
-unfixable once the magnets are glued in.
+**4 magnet PAIRS** (Ø5 x 3 mm), pockets in printed plastic on both halves, press
+fit + a drop of CA. They live on the cage's **base flange**, which drops into a
+rebate counterbored into the panda's base (`panda_base_rebate()`); the pairs meet
+on the flange's **top face**, cage magnet looking up and body magnet recessed into
+the rebate's ceiling looking down, so the two faces touch with nothing between
+them. That matters: with a plastic wall between them a Ø5x3 pair holds ~0.4 N in
+shear, touching it is ~2 N, so 4 pairs give ~8 N against a ~2 N cage.
+
+Positions are `mag_pos` in `dimensions.scad` - a front pair out over the feet and
+a side pair over the base's side collar. They **must** sit outboard of the base
+hatch: the hatch removes the body exactly where an earlier version put them, so
+they had nothing to attract at all.
 
 Pockets are modelled `magnet_fit` (0.05 mm) undersize per side for a press fit,
-with `magnet_wall` (0.8 mm) of material left over the top so they stay hidden.
-If a pocket prints loose, a drop of cyanoacrylate is fine - but push the magnet
-in **before** the glue grabs, because a magnet stuck half-in is not coming out.
+and bottom out on 1.2 mm of backing (`rim_h - magnet_t`) so a magnet cannot be
+pushed through. If a pocket prints loose, CA is fine - but push the magnet in
+**before** the glue grabs, because a magnet stuck half-in is not coming out.
 
-Two 6 x 3 mm N42 discs give a firm hold with a deliberate tug. Start with two;
-add the second pair only if it feels loose, because too much holding force makes
-the clock lift off the table when you pull the sled.
+**CHECK POLARITY on every pair before gluing.** Offer each magnet to its partner,
+let it attract, mark that face, and glue it that way round. A reversed magnet
+repels and will hold the cage off its seat.
 
 ### Guiding
 

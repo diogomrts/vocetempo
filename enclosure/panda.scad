@@ -328,6 +328,53 @@ module panda_cavity_safe() {
     }
 }
 
+// ---- Shorten the folded arms so the screen never slices them ----------------
+// The sculpted plaque is only ~40mm wide but the OLED's lit area is 55.4, so the
+// window's side edges used to cut ~8mm into each paw, leaving a 10mm-deep slice.
+// Bevelling that only softened it. Instead SHORTEN the arms: intersect the body
+// with a copy of the SCULPT ITSELF shifted outboard by arm_shift. Where the shifted
+// copy is less proud than the original the arm is trimmed; where it is more proud
+// nothing happens. So each arm's inboard flank retreats by arm_shift wearing its own
+// natural end shape, and - because the two surfaces cross at the arm's crest - the
+// blend is automatically TANGENTIAL (no crease, no flat facet, no step).
+//
+// Raycast of the sculpt, arm inner edge (front skin >= Y56) vs the window edge:
+//     Z   50    52    54    56    58    60
+//   arm  -20.0 -20.0 -20.0 -21.0 -23.0 -26.5     <- was inboard of the window
+//   win  -27.7 -27.7 -27.5 -26.7 -25.2 -21.5
+// so the worst overlap is 7.7mm at Z49..54. arm_shift = 8 puts the trimmed inner
+// edge at -28.0 against a window edge of -27.70: the tips now just TOUCH the
+// screen's edge instead of being cut by it.
+//
+// arm_ymin is what makes this work. Restricting the trim to the PROUD part of the
+// arm (Y >= 55) protects everything the shift would otherwise wreck: on its own the
+// shift also eroded the armpit valley and the arm/belly crease, opening an 8mm
+// trench from the shoulder down to the screen. Those creases all sit at Y 44..53,
+// i.e. below arm_ymin, so they are now untouched. Measured removal depth with
+// arm_ymin: confined to Z42..60 x X-20..-32 (the paw tip), and exactly 0 on every
+// face of the zone box - no steps to hide.
+//
+// The Y=arm_ymin plane is the one artificial surface: where the shifted copy falls
+// below it the cut bottoms out flat there. That only happens where the copy's skin
+// is under 55, i.e. X > -27.5 - INSIDE the aperture, which is cut away regardless.
+// So every surface that remains VISIBLE is the copy's own skin: at the aperture edge
+// (|X| 27.7) the arm now tapers to Y~53.3, which is the plaque face, so the tip dies
+// out exactly at the screen's edge with no slice wall at all.
+//
+// The BACK never trims: the copy is sampled nearer the centre, where the body is
+// thicker. Only the -X arm is built; the +X arm is its mirror.
+arm_shift  = 9;              // outboard retreat of each arm's inboard flank
+arm_ymin   = 54;             // only trim skin proud of this Y (protects the creases)
+arm_zone   = [[-56, 40], [-18, 76]];   // [[x0,z0],[x1,z1]] of the trim zone
+module arm_trim() {
+    difference() {
+        translate([arm_zone[0][0], arm_ymin, arm_zone[0][1]])
+            cube([arm_zone[1][0] - arm_zone[0][0], 120,
+                  arm_zone[1][1] - arm_zone[0][1]]);
+        translate([-arm_shift, 0, 0]) panda_raw();     // outboard for the -X arm
+    }
+}
+
 // ---- Base hatch: open the underside so the cage slides in ------------------
 // Centred at the cage centre (cage_yc) so the DEEP cage drops straight through.
 module panda_base_hatch() {
@@ -337,6 +384,38 @@ module panda_base_hatch() {
                 square([cage_w + 2, cage_d + 2], center = true);
 }
 eps = 0.01;
+
+// ---- Base rebate + the body half of the magnet pairs ------------------------
+// A counterbore around the hatch that receives the cage's base flange. Before this
+// the flange had nowhere to seat - it was the same width as the hatch on the sides,
+// so it just slipped in, and its outer ring fouled the body above the hatch (the
+// "flange proud spots" in the breach fit-check). Now the flange drops into the
+// rebate and lands on its ceiling, which is also where the magnets meet.
+//
+// Depth = cage_z0 + rim_h, i.e. exactly the flange's top face, so the ceiling IS the
+// mating plane. Footprint = base_flange_2d() + fit_gap, shared with cage.scad. The
+// cage is placed with translate([0,cage_yc,cage_z0]) rotate 180, so the same spin is
+// applied here to put the footprint in panda coordinates.
+rebate_h = cage_z0 + rim_h;      // panda Z of the rebate ceiling = flange top (6.2)
+module panda_base_rebate() {
+    translate([0, cage_yc, -eps])
+        rotate([0, 0, 180])
+            linear_extrude(rebate_h + eps)
+                base_flange_2d(fit_gap);
+}
+
+// The body's 4 magnets: pockets in the rebate's CEILING, opening downward, so each
+// magnet's face sits flush at rebate_h and meets the flange magnet metal-to-metal.
+// Verified by raycast that all four sit in solid body with >=1.5mm of wall: the
+// cavity's front face stops at Y 40.35 (front pair is at Y 50) and the cavity is only
+// 77mm wide (side pair is at |X| 43).
+module panda_magnet_pockets() {
+    translate([0, cage_yc, 0])
+        rotate([0, 0, 180])
+            for (p = mag_pos)
+                translate([p[0], p[1], rebate_h - eps])
+                    cylinder(h = magnet_t + eps, d = magnet_d - 2*magnet_fit);
+}
 
 // ---- Assembly --------------------------------------------------------------
 module panda_body() {
@@ -349,6 +428,10 @@ module panda_body() {
         panda_neck_bore();
         panda_head_vents();
         panda_base_hatch();
+        panda_base_rebate();
+        panda_magnet_pockets();
+        arm_trim();
+        mirror([1, 0, 0]) arm_trim();
     }
 }
 

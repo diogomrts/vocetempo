@@ -79,56 +79,26 @@ module cage_shell() {
 // are OPEN (through the flange) so the magnet face sits flush and meets its
 // body-side partner metal-to-metal. Pocket depth = magnet_t (flush).
 // ---------------------------------------------------------------------------
-rim_h = magnet_t + 1.2;     // flange thickness: magnet depth + a little backing
-// At the base the panda's FEET/paws stick forward on the BELLY (front, cage -Y) -
-// lots of solid base there - while the RUMP (back, cage +Y) recedes and narrows.
-// So the flange puts its full outward rim + magnets on the FRONT (feet) and SIDES,
-// and pulls the BACK edge IN to follow the rump (no back rim). flange_* are cage-
-// frame reaches (front = -Y). [Breach fit-check against the reoriented base skin.]
-front_rim = 4;              // outward rim at the FRONT (over the feet base)
-side_rim  = 3;              // outward rim on the SIDES
-back_pull = 8;              // pull the BACK edge IN (rump recedes at the base)
-back_xw   = 24;             // back edge half-width (the rump narrows)
-flange_xw = W/2 + side_rim;      // SIDE reach
-front_yf  = -(D/2 + front_rim);  // FRONT (feet) reach, cage -Y (outward)
-back_yb   = D/2 - back_pull;      // BACK (rump) edge, pulled IN
-
+// The footprint (core rim + the four magnet ears) lives in helpers.scad as
+// base_flange_2d(), shared with the panda's rebate so the two cannot drift.
+// rim_h / flange_xw / front_yf / back_yb / mag_pos are in dimensions.scad.
 module base_flange() {
     difference() {
-        translate([0, 0, rim_h/2])
-            hull() {
-                // front two corners (full rim, over the feet)
-                for (sx=[-1,1])
-                    translate([sx*(flange_xw-corner_r), front_yf + corner_r, 0])
-                        cylinder(h=rim_h, r=corner_r, center=true);
-                // side mid points (full side rim) where the side magnets sit
-                for (sx=[-1,1])
-                    translate([sx*(flange_xw-corner_r), 0, 0])
-                        cylinder(h=rim_h, r=corner_r, center=true);
-                // back two corners (pulled IN, follows the receding rump)
-                for (sx=[-1,1])
-                    translate([sx*(back_xw-corner_r), back_yb - corner_r, 0])
-                        cylinder(h=rim_h, r=corner_r, center=true);
-            }
+        linear_extrude(rim_h) base_flange_2d();
         // keep the interior open (don't block the hatch)
-        translate([0, 0, rim_h/2 - eps])
-            cube([IW, ID, rim_h + 2*eps], center=true);
+        translate([0, 0, -eps]) cube([IW, ID, rim_h + 2*eps], center = true);
     }
 }
 
-// 4 magnet pockets, open from the base (-Z), flush top. Placed where the flange
-// sits over SOLID body base: the two FRONT corners (over the feet) and two on the
-// SIDES. Centres are inset from the outer flange edge so the pocket wall stays intact.
-mag_side_y = 0;             // side magnets at mid-depth (cage frame)
-mag_inset  = 3;            // pocket-centre inset from the outer flange edge
+// 4 magnet pockets, flush with the flange's TOP face (+Z) - that face is where the
+// pair meets its body-side partner, which is recessed into the rebate's ceiling. The
+// pocket bottoms out on 1.2mm of backing (rim_h - magnet_t) so the magnet cannot be
+// pushed straight through, and is undersized by magnet_fit per side for a press fit.
+// CHECK POLARITY against the body magnet before gluing (see dimensions.scad).
 module magnet_pockets() {
-    pts = [[ flange_xw - mag_inset,  front_yf + mag_inset],   // front-right (foot)
-           [-flange_xw + mag_inset,  front_yf + mag_inset],   // front-left  (foot)
-           [ flange_xw - mag_inset,  mag_side_y],             // side-right
-           [-flange_xw + mag_inset,  mag_side_y]];            // side-left
-    for (p = pts)
-        translate([p[0], p[1], magnet_t/2 - eps])
-            cylinder(h = magnet_t + 2*eps, d = magnet_d - 2*magnet_fit, center=true);
+    for (p = mag_pos)
+        translate([p[0], p[1], rim_h - magnet_t])
+            cylinder(h = magnet_t + eps, d = magnet_d - 2*magnet_fit);
 }
 
 // ---------------------------------------------------------------------------

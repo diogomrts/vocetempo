@@ -95,6 +95,43 @@ module shell_section(cf, cb, shrink = 0, fyb = 0) {
              [-hw, fy + cfx], [-hw + cfx, fy]]);
 }
 
+// ---------------------------------------------------------------------------
+// BASE FLANGE FOOTPRINT (shared by the cage's foot and the panda's rebate).
+//
+// In the CAGE frame. A core rim that follows the panda's base - full outward rim at
+// the FRONT (over the feet) and SIDES, pulled IN at the BACK where the rump recedes
+// - plus four EARS that reach out to the magnet positions. The ears have to be local
+// tabs rather than a wider rim: the body's front skin at Z2 is only Y 42..46 around
+// |X|<26, so a rim carried out to the front magnets across the full width would
+// simply poke out of the belly.
+//
+// `g` grows the whole outline (the panda uses g = fit_gap so the flange slides into
+// its rebate). Keeping this in ONE place is what guarantees the cage's foot and the
+// body's rebate cannot drift apart.
+// ---------------------------------------------------------------------------
+module base_flange_2d(g = 0) {
+    offset(delta = g) union() {
+        hull() {
+            for (sx = [-1, 1]) {
+                // front corners (full rim, over the feet)
+                translate([sx*(flange_xw - corner_r), front_yf + corner_r])
+                    circle(r = corner_r);
+                // side mid points (full side rim)
+                translate([sx*(flange_xw - corner_r), 0]) circle(r = corner_r);
+                // back corners, pulled IN to follow the receding rump
+                translate([sx*(back_xw - corner_r), back_yb - corner_r])
+                    circle(r = corner_r);
+            }
+        }
+        // magnet ears: a stadium from the flange's edge out to each pocket centre
+        for (i = [0 : len(mag_pos) - 1])
+            hull() {
+                translate(mag_pos[i])      circle(r = mag_ear_r);
+                translate(mag_ear_root[i]) circle(r = mag_ear_r);
+            }
+    }
+}
+
 // The full SOLID shell body (filled, not hollow) built by lofting the chamfered
 // section between successive profile rows. `shrink` insets it (0 = outer surface,
 // wall thickness = inner shrink). Spans Z from profile[0] to the last row.
