@@ -338,41 +338,41 @@ module panda_cavity_safe() {
 // natural end shape, and - because the two surfaces cross at the arm's crest - the
 // blend is automatically TANGENTIAL (no crease, no flat facet, no step).
 //
-// Raycast of the sculpt, arm inner edge (front skin >= Y56) vs the window edge:
-//     Z   50    52    54    56    58    60
-//   arm  -20.0 -20.0 -20.0 -21.0 -23.0 -26.5     <- was inboard of the window
-//   win  -27.7 -27.7 -27.5 -26.7 -25.2 -21.5
-// so the worst overlap is 7.7mm at Z49..54. arm_shift = 8 puts the trimmed inner
-// edge at -28.0 against a window edge of -27.70: the tips now just TOUCH the
-// screen's edge instead of being cut by it.
+// THE SHIFT MUST RUN ALONG THE ARM'S OWN AXIS (outboard AND up), not straight
+// outboard. The arm runs diagonally from the shoulder (X-40, Z68) down to the paw
+// (X-20, Z50), so sliding it back along that axis slides its flanks ALONG
+// THEMSELVES: nothing gets eroded sideways, the armpit crease and the arm/belly
+// crease survive, and the tip stays a rounded lobe. arm_shift is 12mm along that
+// axis, which pulls the paw clear of the aperture (wall at the window edge drops
+// from 9.5mm to 1.5..2.4mm) while still reading as an arm.
 //
-// arm_ymin is what makes this work. Restricting the trim to the PROUD part of the
-// arm (Y >= 55) protects everything the shift would otherwise wreck: on its own the
-// shift also eroded the armpit valley and the arm/belly crease, opening an 8mm
-// trench from the shoulder down to the screen. Those creases all sit at Y 44..53,
-// i.e. below arm_ymin, so they are now untouched. Measured removal depth with
-// arm_ymin: confined to Z42..60 x X-20..-32 (the paw tip), and exactly 0 on every
-// face of the zone box - no steps to hide.
+// Two earlier versions are worth not repeating:
+//  * A straight-outboard shift erodes the inboard flank along its whole length and
+//    opens an 8mm trench from the shoulder down to the screen.
+//  * Fixing that with a floor plane (only trim skin proud of Y54) is worse: where
+//    the shifted skin falls below the floor the cut bottoms out FLAT, leaving a
+//    plateau up to 9mm wide with a 4mm cliff on its inboard side where the belly
+//    drops into the armpit. That plateau is the "pointy beak" above the paw.
+// The axis shift needs no such floor - arm_ymin is only a deep guard that nothing
+// ever reaches, so there is no artificial flat anywhere on the result.
 //
-// The Y=arm_ymin plane is the one artificial surface: where the shifted copy falls
-// below it the cut bottoms out flat there. That only happens where the copy's skin
-// is under 55, i.e. X > -27.5 - INSIDE the aperture, which is cut away regardless.
-// So every surface that remains VISIBLE is the copy's own skin: at the aperture edge
-// (|X| 27.7) the arm now tapers to Y~53.3, which is the plaque face, so the tip dies
-// out exactly at the screen's edge with no slice wall at all.
-//
-// The BACK never trims: the copy is sampled nearer the centre, where the body is
-// thicker. Only the -X arm is built; the +X arm is its mirror.
-arm_shift  = 9;              // outboard retreat of each arm's inboard flank
-arm_ymin   = 54;             // only trim skin proud of this Y (protects the creases)
-arm_zone   = [[-56, 40], [-18, 76]];   // [[x0,z0],[x1,z1]] of the trim zone
-module arm_trim() {
+// The zone is a plain box: measured removal is 0 on every face of it (0 outboard of
+// X-60, 0 above Z76 where the arm has merged into the shoulder, and below Z38 only
+// inside the aperture, which is cut away anyway). The BACK never trims - the copy is
+// sampled nearer the centre, where the body is thicker. Only the -X arm is built;
+// the +X arm is its mirror.
+arm_shift = [-8.9, 0, 8.0];   // 12mm, along the arm's axis (outboard + up)
+arm_ymin  = 46;               // deep guard; the trim never reaches it
+arm_zone  = [[-60, 38], [-18, 76]];    // [[x0,z0],[x1,z1]] of the trim zone
+module arm_trim_pass(shift, ymin, zone) {
     difference() {
-        translate([arm_zone[0][0], arm_ymin, arm_zone[0][1]])
-            cube([arm_zone[1][0] - arm_zone[0][0], 120,
-                  arm_zone[1][1] - arm_zone[0][1]]);
-        translate([-arm_shift, 0, 0]) panda_raw();     // outboard for the -X arm
+        translate([zone[0][0], ymin, zone[0][1]])
+            cube([zone[1][0] - zone[0][0], 120, zone[1][1] - zone[0][1]]);
+        translate(shift) panda_raw();                 // outboard for the -X arm
     }
+}
+module arm_trim() {
+    arm_trim_pass(arm_shift, arm_ymin, arm_zone);
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------
