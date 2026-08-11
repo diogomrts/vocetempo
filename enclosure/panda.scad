@@ -56,15 +56,82 @@ cut_depth      = 80;             // how far a cut solid reaches back from the su
 
 // OLED window: cut the lit-area rectangle through the belly. The cut solid
 // starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
+//
+// The opening is the lit area (55 x 28) + fit_gap with GENEROUSLY ROUNDED CORNERS
+// (oled_corner_r). Mesh scan of the belly: the feet start at X+-28 / Z<=39 and the
+// folded paws come inward to X+-20..22 over Z44..58. A plain rectangle speared its
+// bottom corners into the feet and its side edges into the paws. Rounding the
+// corners hard (keeping the full 55x28 straight-edge span, so no clock pixels are
+// lost - the corners of the lit area are blank) lifts the corners clear of the feet
+// and the upper paw tips; the remaining side overlap with the paws is unavoidable
+// (they sit in front of the outer screen edge) but is now a clean rounded cut.
+//
+// MOUTH BEVEL (oled_bevel_*): the sculpted screen plaque is only ~40mm wide but the
+// OLED's lit area is 55.4, so the window HAS to cut through the folded paws - their
+// tips sit right in front of the screen's outer 8mm. Raycast of the sculpt along the
+// window outline: the plaque face is at Y~53.4 while the paw tips reach Y 62.95, so
+// a plain prism sliced them with a ~10mm-deep vertical wall and a knife-sharp
+// crescent edge (plus a razor fin where the plaque's bezel groove was clipped).
+// The fix is a countersink that only bites where the skin BULGES FORWARD: the cut
+// keeps the exact aperture behind oled_bevel_y0 (=58, behind every part of the
+// plaque, so no pixels are lost) and flares outward from there, reaching
+// oled_bevel_c at oled_bevel_y1. The flare is therefore inert over the plaque, the
+// belly and the feet (all behind Y58) and turns the paw slice into a ~40 deg bevel.
+// The bevel is also clipped to Z >= oled_bevel_z0 so it only ever touches the PAWS.
+// Without that clip it reached the FEET too: the window's bottom corners pass within
+// ~2mm of the legs, whose fronts bulge to Y 64..67.7, so the flare scooped up to 5mm
+// out of each shin. At Z40 nothing within reach of the flare is in front of Y58 (the
+// belly there is at Y~51-52), so the clip edge itself is invisible.
+oled_corner_r  = 8;
+oled_bevel_y0  = 58;   // bevel starts here; behind this the aperture is exact
+oled_bevel_y1  = 65;   // ... fully open by here (past the belly's front peak ~67)
+oled_bevel_c   = 5;    // outward offset at y1 -> ~35 deg wall on the paw tips
+oled_bevel_z0  = 40;   // only bevel above this Z (paws yes, feet/legs no)
+// The aperture outline: a w x h box with its corners rounded hard INWARD, so the
+// straight-edge spans stay the full w and h (no pixels lost - the lit area's corners
+// are blank). `g` grows it outward for the bevel.
+module oled_outline(w, h, g = 0) {
+    offset(delta = g)
+        offset(r = oled_corner_r) offset(delta = -oled_corner_r)
+            square([w, h], center = true);
+}
 module panda_oled_cut() {
-    // rotate([90,0,0]) makes linear_extrude (+Z) point in -Y, i.e. INTO the body,
-    // starting just outside the belly at +Y=belly_face_y.
-    translate([oled_active_dx, belly_face_y, screen_cz + oled_active_dy])
-        rotate([90, 0, 0])                  // extrude -> -Y (into the body)
-            linear_extrude(height = cut_depth)
-                offset(r = 2)
-                    square([oled_active_w + fit_gap, oled_active_h + fit_gap],
-                           center = true);
+    w = oled_active_w + fit_gap;            // 55.4 - full lit width kept at mid-height
+    h = oled_active_h + fit_gap;            // 28.4 - full lit height kept at mid-width
+    // NB screen_cz IS the lit-area centre already (dev_oled_pz); do NOT add
+    // oled_active_dy here. That offset only converts PCB centre <-> lit centre and
+    // is applied on the CAGE side (cage.scad's oled_cz / az). Adding it here too
+    // lifted the whole window 3.1mm above the actual screen, which both misaligned
+    // the aperture and ran its top corner arc straight along the armpit crease at
+    // Z~63, leaving a razor lip that broke into two pin-holes.
+    translate([oled_active_dx, 0, screen_cz]) {
+        // 1. the aperture itself: exact size, starting OUTSIDE the belly and running
+        //    back through the body. rotate([90,0,0]) makes linear_extrude (+Z) point
+        //    in -Y, i.e. INTO the body. This must span the full depth on its own: the
+        //    bevel below is clipped in Z, so it cannot be relied on to open the mouth.
+        translate([0, belly_face_y, 0])
+            rotate([90, 0, 0])
+                linear_extrude(height = cut_depth)
+                    oled_outline(w, h);
+        // 2. the mouth bevel: a linear flare from the aperture at y0 out to +c at y1,
+        //    then straight on out past the belly. Both outlines are convex, so hull()
+        //    gives exactly the tapered prism. Clipped to Z >= oled_bevel_z0 (panda
+        //    frame) so it shapes the paw tips and leaves the legs alone.
+        intersection() {
+            union() {
+                hull() {
+                    translate([0, oled_bevel_y0, 0]) rotate([90, 0, 0])
+                        linear_extrude(0.01) oled_outline(w, h);
+                    translate([0, oled_bevel_y1, 0]) rotate([90, 0, 0])
+                        linear_extrude(0.01) oled_outline(w, h, oled_bevel_c);
+                }
+                translate([0, belly_face_y, 0]) rotate([90, 0, 0])
+                    linear_extrude(belly_face_y - oled_bevel_y1)
+                        oled_outline(w, h, oled_bevel_c);
+            }
+            translate([-100, 0, oled_bevel_z0 - screen_cz]) cube([200, 200, 200]);
+        }
+    }
 }
 
 // Joystick opening: sized to the SLIM PRINTED CAP (joy_panel_open ~20mm), not
@@ -101,15 +168,106 @@ module panda_neck_bore() {
             offset(r = 4) square([2*sp_hw - 8, 2*sp_dep - 8], center = true);
 }
 
-// Head vents: small holes so the head-chamber sound escapes out the FACE. Aimed at
-// the chin/lower-face area (below the nose). The head interior top is ~Z118 (chimney
-// top); vents sit around Z108-116 on the face front, angled -Y->out. [UNVERIFIED
-// against the exact face surface - tune once the chimney is confirmed.]
-head_vent_z = 112;
+// Head resonator: HOLLOW the head so the speaker chamber can actually resonate.
+// Mesh scan of the head this session: skin X +-51, back Y~-29, crown ~Z150, face
+// front Y~62-68 (nose tip 75). An ELLIPSOID void centred (0, 10, 114) with radii
+// (38, 30, 28) leaves >=8mm wall everywhere (verified: chamber-minus-skin renders
+// empty - no breach of face, ears or crown) and OVERLAPS the neck chimney top
+// (Z118) so the void is continuous: speaker -> chimney -> head chamber -> vents.
+head_c = [0, 10, 114];
+head_r = [38, 30, 28];
+module panda_head_cavity() {
+    translate(head_c) scale(head_r) sphere(r = 1);
+}
+
+// Head vents: the speaker grille sits in the STIPPLED INNER DISH of each ear (the
+// sculpted "inner ear"), venting the head resonator so sound emits FROM THE EARS.
+// An earlier version drilled 2x3 holes on the ear's outer-lower CORNER, which read
+// as damage rather than a grille; the dish is the only surface on the ear that is
+// meant to look perforated.
+//
+// Mesh survey of the sculpt (a density + front/back surface scan of the 500k mesh,
+// run SEPARATELY PER EAR because the stipple is randomised per side, then the two
+// masks were intersected so one hole layout is valid on BOTH ears):
+//   * the inner dish is a RECESS ~1.3mm behind the ear's rim: its surface lies at
+//     Y 19.8..21.7 where the surrounding rim is at Y ~22.0. It is identifiable both
+//     by that step and by its stipple (5-10x the triangle density of smooth skin).
+//   * shape: a TILTED OVAL, centre (X 40.1, Z 146.7), major axis -46.2 deg in the
+//     XZ plane (top tilts inboard), ~20mm long x ~13.8mm wide.
+//   * stock behind it: the ear's rear skin is at Y 8.6..11.6, so ~10-11.5mm to work
+//     in. CAVEAT: the stipple patch is a SEPARATE OVERLAPPING SHELL in the sculpt,
+//     so it also emits rear-facing triangles at Y~21 - only rear-facing geometry
+//     below Y 15 is the ear's real back skin.
+//
+// The vent is therefore a real grille rather than a few blind pokes:
+//   13 bores (hex 4/5/4, d2.4 @ 3.8 pitch, the grid rotated onto the dish's major
+//   axis) -> a shared PLENUM milled just under the skin -> 3 ducts that tunnel
+//   inboard and down into the head void (which tops out at Z142, X+-14).
+// Open areas are matched: grille 58.8mm^2 vs duct throat ~54.6mm^2 (the 3 ducts
+// overlap into one ~12x5 stadium throat).
+// Verified: >=1.75mm of stippled skin in front of the plenum, >=1.99mm to the ear's
+// rear skin, >=1.5mm of wall around every duct along its whole run, and all three
+// ducts terminate INSIDE panda_head_cavity().
+ear_cx      = 40.13;   // inner-dish centre, panda X (right ear; left is mirrored)
+ear_cz      = 146.73;  // inner-dish centre, panda Z
+ear_ang     = -46.2;   // dish major axis, degrees in the XZ plane
+ear_hole_d  = 2.4;     // grille hole diameter
+ear_pitch   = 3.8;     // hex pitch -> 1.4mm webs between holes
+ear_pl_y1   = 18.0;    // plenum FRONT face (leaves >=1.75mm of stippled skin)
+ear_pl_y0   = 13.5;    // plenum REAR face  (leaves >=1.99mm to the ear's back skin)
+ear_pl_r    = 1.6;     // plenum overhang beyond the hole-centre hull
+ear_duct_d  = 5.0;     // duct bore
+ear_duct_y  = 15.8;    // ducts leave the plenum at its mid-depth
+ear_duct_y2 = 10.0;    // ... and meet the head void at this Y (the void's mid-Y)
+// duct [X,Z] start (inside the plenum footprint) -> [X,Z] end (inside the head void)
+ear_ducts   = [[[34, 148  ], [10, 132]],
+               [[37, 144.5], [12, 129]],
+               [[40, 141  ], [14, 126]]];
+
+// Hex 4/5/4 cluster in the dish's own (u,v) frame; u runs along the major axis.
+// Rows +-1 are offset by half a pitch and one hole shorter, which is what makes the
+// cluster's outline echo the oval instead of squaring off inside it.
+ear_holes = [ for (i = [-1, 0, 1])
+                  each [ for (j = [-2 : (i == 0 ? 2 : 1)])
+                             [ j*ear_pitch + (i == 0 ? 0 : ear_pitch/2),
+                               i*ear_pitch*sin(60) ] ] ];
+
+module cyl_between(p1, p2, d) {
+    v  = p2 - p1;
+    L  = norm(v);
+    az = atan2(v[1], v[0]);
+    pol = acos(v[2] / L);
+    translate(p1)
+        rotate([0, 0, az]) rotate([0, pol, 0])
+            cylinder(h = L, d = d);
+}
+
+// One ear's vent, built for the RIGHT ear (+X); the left is a mirror (the body is
+// symmetric in X and the hole layout was solved against BOTH ears' dishes).
+module ear_vent() {
+    // Dish frame: local (u, Y, v) -> panda (X, Y, Z). rotate([0,-ear_ang,0]) spins
+    // the XZ plane onto the dish's major axis and leaves Y - the bore axis - alone.
+    translate([ear_cx, 0, ear_cz]) rotate([0, -ear_ang, 0]) {
+        // Visible grille: bores from OUTSIDE the dish (Y24) down into the plenum.
+        translate([0, 24, 0]) rotate([90, 0, 0])        // extrude -> -Y
+            linear_extrude(24 - (ear_pl_y0 + 1))
+                for (p = ear_holes)
+                    translate(p) circle(d = ear_hole_d, $fn = 24);
+        // Plenum: one shallow cavity joining every bore, just under the skin.
+        translate([0, ear_pl_y1, 0]) rotate([90, 0, 0])
+            linear_extrude(ear_pl_y1 - ear_pl_y0)
+                hull() for (p = ear_holes)
+                    translate(p) circle(r = ear_pl_r, $fn = 24);
+    }
+    // Ducts: plenum -> head resonator. In panda coords, NOT the dish frame.
+    for (d = ear_ducts)
+        cyl_between([d[0][0], ear_duct_y,  d[0][1]],
+                    [d[1][0], ear_duct_y2, d[1][1]], ear_duct_d);
+}
+
 module panda_head_vents() {
-    for (a = [-24, -8, 8, 24])
-        translate([a, 40, head_vent_z])
-            rotate([90, 0, 0]) cylinder(h = 60, d = 3.2);
+    ear_vent();
+    mirror([1, 0, 0]) ear_vent();
 }
 
 // ---- Hollowing -------------------------------------------------------------
@@ -123,18 +281,51 @@ module panda_head_vents() {
 // to clear the panda skin - the cavity stays (just) inside the skin too, instead
 // of punching the old "shoulder/armpit" holes. The speaker reaches the head via
 // the neck bore, so the cavity needn't go higher than the cage.
-cav_clear = 1.0;                     // slide-in gap between cage and cavity walls
+cav_clear     = 1.0;                 // slide-in gap on the SIDES/BACK (easy insertion)
+cav_front_gap = 0.35;                // MUCH tighter gap on the BELLY-FRONT face, so the
+                                     // wall over/above the screen stays thick. The old
+                                     // uniform 1.0 inflated the cavity into the belly
+                                     // skin at the arm-fold -> pin-holes. fyb below pulls
+                                     // just the front face back to leave only this gap.
+cav_fyb = cav_clear - cav_front_gap; // front-face bias (0.65): front hugs the cage
 module panda_cavity() {
     translate([0, cage_yc, cage_z0])
         rotate([0, 0, 180])
-            // shell body inflated by cav_clear (negative shrink), extended a bit
-            // BELOW its base so the underside opens into the base hatch.
+            // shell body inflated by cav_clear (negative shrink) on sides/back, but the
+            // front face pulled back by cav_fyb; extended below its base into the hatch.
             union() {
-                shell_stack(shell_prof, -cav_clear);
+                shell_stack(shell_prof, -cav_clear, cav_fyb);
                 translate([0, 0, -(cage_z0 + 2)])
                     linear_extrude(cage_z0 + 2 + 0.1)
-                        shell_section(shell_prof[0][1], shell_prof[0][2], -cav_clear);
+                        shell_section(shell_prof[0][1], shell_prof[0][2], -cav_clear, cav_fyb);
             }
+}
+
+// GUARANTEED belly wall: the arm-fold makes the skin graze the cavity right above
+// the screen corners, leaving tangent slivers that no simple gap tweak removes. So
+// we CLIP the cavity (above Z=cav_clip_z, i.e. the upper belly only - the base and
+// hatch below are untouched) to a copy of the skin scaled inward, so the cavity
+// physically cannot come within ~cav_min of the outer surface. The scale-toward-axis
+// is a cheap stand-in for a true 3D inward offset; it erodes ~cav_min at the belly
+// radius, which is all we need at the pinch. Verified: cage still seats (cage-in-body
+// collision render is empty).
+cav_min     = 1.4;          // min wall the clip guarantees around the arm-fold
+skin_cy     = 15;           // approx body Y axis to scale the skin toward
+cav_clip_z  = 50;           // only clip the UPPER belly (leave the base/hatch alone)
+module skin_inset() {
+    k = 1 - cav_min/34;     // ~cav_min erosion at the ~34mm belly/pinch radius
+    translate([0, skin_cy, 0]) scale([k, k, 1]) translate([0, -skin_cy, 0])
+        panda_raw();
+}
+module panda_cavity_safe() {
+    difference() {
+        panda_cavity();
+        // remove any cavity that (above the clip line) sits outside the eroded skin
+        difference() {
+            translate([-300, -300, cav_clip_z]) cube([600, 600, 400]);
+            skin_inset();
+        }
+    }
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------
@@ -151,10 +342,12 @@ eps = 0.01;
 module panda_body() {
     difference() {
         panda_raw();
-        panda_cavity();
+        panda_cavity_safe();
+        panda_head_cavity();
         panda_oled_cut();
         panda_joystick_cut();
         panda_neck_bore();
+        panda_head_vents();
         panda_base_hatch();
     }
 }

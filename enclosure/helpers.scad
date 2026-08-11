@@ -79,9 +79,13 @@ module screw_boss(h) {
 // value). See shell_prof in dimensions.scad for how cf/cb vary with height and
 // why. Keeping this in ONE place stops the box and the cavity from drifting.
 // ---------------------------------------------------------------------------
-module shell_section(cf, cb, shrink = 0) {
+// fyb (front-Y bias) pulls ONLY the front (belly, -Y) face back toward +Y by fyb,
+// independent of `shrink`. The cavity uses it to hug the cage tightly on the belly
+// side (thick screen wall) while still inflating the sides/back for slide clearance.
+// Default 0 keeps the cage box exactly as before.
+module shell_section(cf, cb, shrink = 0, fyb = 0) {
     hw = cage_w/2 - shrink;
-    fy = -cage_d/2 + shrink;          // front (belly) face, -Y
+    fy = -cage_d/2 + shrink + fyb;    // front (belly) face, -Y (+fyb pulls it back)
     by =  cage_d/2 - shrink;          // back face, +Y
     cfx = min(max(cf - shrink, 0), hw - 1);
     cbx = min(max(cb - shrink, 0), hw - 1);
@@ -94,15 +98,15 @@ module shell_section(cf, cb, shrink = 0) {
 // The full SOLID shell body (filled, not hollow) built by lofting the chamfered
 // section between successive profile rows. `shrink` insets it (0 = outer surface,
 // wall thickness = inner shrink). Spans Z from profile[0] to the last row.
-module shell_stack(profile, shrink = 0) {
+module shell_stack(profile, shrink = 0, fyb = 0) {
     seg_eps = 0.02;
     for (i = [0 : len(profile) - 2]) {
         z0 = profile[i][0];   z1 = profile[i+1][0];
         hull() {
             translate([0, 0, z0]) linear_extrude(seg_eps)
-                shell_section(profile[i][1],   profile[i][2],   shrink);
+                shell_section(profile[i][1],   profile[i][2],   shrink, fyb);
             translate([0, 0, z1]) linear_extrude(seg_eps)
-                shell_section(profile[i+1][1], profile[i+1][2], shrink);
+                shell_section(profile[i+1][1], profile[i+1][2], shrink, fyb);
         }
     }
 }

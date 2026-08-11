@@ -22,6 +22,11 @@
 
 include <dimensions.scad>
 include <helpers.scad>
+use <panda.scad>          // for skin_inset(): trims the cage's upper front-side corners
+                          // to the SAME inward-eroded skin the body cavity is clipped to,
+                          // so the cage matches the thickened belly wall at the arm-fold
+                          // and still seats. (Only the feature-free corners are shaved -
+                          // clear of the OLED standoffs.) Loads the panda mesh on render.
 
 // ---- Local shorthands ------------------------------------------------------
 W  = cage_w;        // 75  outer width  (X)
@@ -453,8 +458,22 @@ module joy_cap() {
 // ---------------------------------------------------------------------------
 // ASSEMBLY
 // ---------------------------------------------------------------------------
+// The body cavity is clipped to an inward-eroded skin (panda.scad) to keep a solid
+// belly wall at the arm-fold. Clip the cage's UPPER shell to the same eroded skin so
+// it stays inside that thicker wall and still slides in. The eroded skin lives in the
+// PANDA frame; map it into the cage frame by undoing the placement transform
+// (translate([0,cage_yc,cage_z0]) rotate 180). Everything below cage_clip_z (the base
+// flange, boards, magnets) is kept untouched.
+cage_clip_z = 48;           // cage-frame Z; below this we never clip (panda Z ~50)
+module cage_upper_clip() {
+    union() {
+        translate([-300, -300, -300]) cube([600, 600, 300 + cage_clip_z]);
+        rotate([0, 0, 180]) translate([0, -cage_yc, -cage_z0]) skin_inset();
+    }
+}
 module cage() {
     difference() {
+      intersection() {
         union() {
             cage_shell();
             base_flange();          // flange sticks OUT past the shell by design
@@ -477,6 +496,8 @@ module cage() {
                 shell_solid(0, H);
             }
         }
+        cage_upper_clip();
+      }
         oled_window_cut();
         joystick_cone_cut();
         speaker_throat_cut();

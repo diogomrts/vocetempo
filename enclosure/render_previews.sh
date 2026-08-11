@@ -40,8 +40,23 @@ render cage_back.png   "0,0,48,62,0,205,430" cage.scad
 
 # The hollowed panda body. NEEDS the Manifold backend (the 500k-tri mesh is far
 # too slow for CGAL); requires OpenSCAD 2023+.
-"$SCAD" --backend=Manifold -o previews/panda_cut_iso.png --imgsize=700,900 \
-  --camera=0,0,0,72,0,8,0 --viewall --autocenter --projection=perspective \
+# --render forces FULL geometry (F6) instead of the fast OpenCSG preview: the
+# preview fakes transparency where the cut solids meet the skin, so it shows false
+# "holes"/see-through panels. --render is artifact-free (what the STL actually is).
+# BOTH views look at the BELLY (+Y) - that is where the functional openings are
+# (OLED window + joystick), so a back-facing view shows nothing. rotz~180 faces the
+# belly; the iso uses rx=80 (fairly side-on) so it doesn't sight-line through the
+# joystick and out the open base.
+"$SCAD" --backend=Manifold --render -o previews/panda_cut_front.png --imgsize=700,900 \
+  --camera=0,0,0,90,0,180,0 --viewall --autocenter --projection=perspective \
+  --colorscheme="$SCHEME" panda.scad
+"$SCAD" --backend=Manifold --render -o previews/panda_cut_iso.png --imgsize=700,900 \
+  --camera=0,0,0,80,0,193,0 --viewall --autocenter --projection=perspective \
+  --colorscheme="$SCHEME" panda.scad
+# Close-up of the RIGHT ear: the speaker grille must sit inside the stippled inner
+# dish (see panda.scad ear_vent()), with an untouched stipple margin all round.
+"$SCAD" --backend=Manifold --render -o previews/panda_ear_grille.png --imgsize=800,800 \
+  --camera=40,0,147,78,0,168,110 --projection=perspective \
   --colorscheme="$SCHEME" panda.scad
 
 # Integration fit-check: cage seated in the panda (ghost + section + breach).

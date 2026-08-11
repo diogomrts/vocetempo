@@ -248,7 +248,10 @@ cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
 // cage is ROTATED 180 about Z, then translated:
 //     translate([0, cage_yc, cage_z0]) rotate([0,0,180]) cage();
 // After the 180 spin, the cage front (-D/2) maps to +D/2, i.e. panda Y cage_yfront.
-cage_yfront     = 42;     // panda Y of the cage FRONT (belly) outer face
+cage_yfront     = 40;     // panda Y of the cage FRONT (belly) outer face
+                          // (was 42; pulled back 2mm to thicken the thin belly wall
+                          //  above the screen - it had pin-holed at the arm-fold
+                          //  crease. Screen recess deepens ~2mm, still shallow.)
 cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 12)
 // The cross-section shape (which corners are chamfered, and by how much, per
 // height) is defined by shell_prof further down - a single source of truth shared

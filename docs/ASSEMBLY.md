@@ -235,24 +235,33 @@ a part designed to come apart repeatedly.
 ## 7. Speaker and the head
 
 ```
+     ear grille   ear grille
+         ░░           ░░       <- 13 holes each, in the stippled inner-ear dish
+          \           /
         ┌──────────────┐
-        │     head     │   <- front chamber; grille on the face
+        │     head     │   <- front chamber (ellipsoid void, hollow)
         │   (hollow)   │
         └──────┬───────┘
-          ═════╪═════       <- gasket, airtight
+          ═════╪═════       <- neck chimney (48 x 34), airtight
         ┌──────┴───────┐
-        │  speaker in  │
-        │  sled roof   │   <- sled interior = sealed rear volume
+        │  speaker on  │
+        │   cage top   │   <- cage interior = sealed rear volume
         └──────────────┘
 ```
 
-- Speaker mounts to the **underside** of the sled roof, firing up, held by four
-  M3 screws or a printed retaining ring.
-- The `spk_grille_d` (34 mm) opening in the roof, with the gasket compressed
-  between flange and roof.
-- The grille itself goes on the **head's face**, so sound comes toward the
-  listener. `helpers.scad` already has a `speaker_grille()` module (hex hole
-  pattern) - it just needs calling from the concept.
+- Speaker mounts to the **top** of the cage, firing up, held by four M3 screws or
+  a printed retaining ring.
+- The stadium opening (`spk_grille_l` x `spk_grille_w`) in the cage top, with the
+  gasket compressed between flange and roof.
+- Sound then runs **cage top -> neck chimney -> hollow head -> ears**. The grille
+  is *not* on the face: it is cut into the sculpted **stippled inner dish of each
+  ear** (13 holes, 2.4 mm, hex 4/5/4, on the dish's own major axis), fed by a
+  shallow plenum under the skin and three ducts into the head void. See
+  `panda_head_vents()` / `ear_vent()` in `panda.scad` and
+  `previews/panda_ear_grille.png`. Open areas are matched (grille 58.8 mm^2 per
+  ear vs ~54.6 mm^2 of duct throat).
+- `helpers.scad`'s generic `speaker_grille()` is unused - the ear grille is
+  solved against the sculpt's own geometry instead.
 - Keep the head cavity as sealed as practical. Every unintended gap is bass
   leaking out.
 - Do not let the speaker's magnet sit against the DS3231 or the OLED ribbon.
@@ -333,8 +342,8 @@ printable, the chosen concept needs:
 - [ ] The body cavity that receives it, with matching rails and washer recesses
 - [ ] Joystick panel hole, **flared** to `joy_throw_a` so the stick can tilt
 - [ ] OLED window and mounting bosses (`oled_hole_dx`/`dy` exist already)
-- [ ] Speaker opening in the sled roof + grille on the head face - `helpers.scad`
-      already has `speaker_grille()`, currently never called
+- [ ] Speaker opening in the cage top (done) + the ear grilles (done: see
+      `ear_vent()` in `panda.scad`); `helpers.scad`'s `speaker_grille()` is unused
 - [ ] Screw bosses - `helpers.scad` has `screw_boss()`, also never called
 - [ ] USB slot and amp vents
 - [ ] Print-splitting and orientation
