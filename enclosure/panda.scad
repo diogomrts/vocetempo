@@ -34,11 +34,23 @@ include <helpers.scad>
 // spin also mirrors X, which is harmless (the panda is left-right symmetric and
 // the mirrored plaque text is cut away). Keep this transform in ONE place -
 // anything that imports the raw sculpt must go through panda_raw().
-panda_stl = "panda/panda_original.stl";
+//
+// DROP-IN FOR A RE-SCULPTED MESH (e.g. arms shortened in Blender): export it in
+// FINAL PANDA COORDINATES - millimetres, feet on Z=0, centred on X, belly at +Y -
+// save it alongside the original (never overwrite panda_original.stl), point
+// panda_stl_mm at it and set panda_premade = true. It is then imported as-is, with
+// no scale or reorient, so every dimension in this file still applies. If the new
+// sculpt already keeps its paws clear of the screen, also set paw_trim = false.
+panda_stl     = "panda/panda_original.stl";   // untouched source (normalized units)
+panda_stl_mm  = "panda/panda_arms.stl";       // optional re-sculpt, already in mm
+panda_premade = false;
 
 module panda_raw() {
-    translate([0, 26, 0]) rotate([0, 0, 180])
-        scale(panda_scale) import(panda_stl, convexity = 10);
+    if (panda_premade)
+        import(panda_stl_mm, convexity = 10);
+    else
+        translate([0, 26, 0]) rotate([0, 0, 180])
+            scale(panda_scale) import(panda_stl, convexity = 10);
 }
 
 // ---- Opening placements (belly is +Y) --------------------------------------
@@ -58,38 +70,25 @@ cut_depth      = 80;             // how far a cut solid reaches back from the su
 // starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
 //
 // The opening is the lit area (55 x 28) + fit_gap with GENEROUSLY ROUNDED CORNERS
-// (oled_corner_r). Mesh scan of the belly: the feet start at X+-28 / Z<=39 and the
-// folded paws come inward to X+-20..22 over Z44..58. A plain rectangle speared its
-// bottom corners into the feet and its side edges into the paws. Rounding the
-// corners hard (keeping the full 55x28 straight-edge span, so no clock pixels are
-// lost - the corners of the lit area are blank) lifts the corners clear of the feet
-// and the upper paw tips; the remaining side overlap with the paws is unavoidable
-// (they sit in front of the outer screen edge) but is now a clean rounded cut.
+// (oled_corner_r). Mesh scan of the belly: the feet top out at Z39.4 and the folded
+// paws come inward to X+-20..22 over Z41..61. A plain rectangle speared its bottom
+// corners into the feet and its side edges into the paws. Rounding the corners hard
+// (keeping the full 55x28 straight-edge span, so no clock pixels are lost - the
+// corners of the lit area are blank) lifts the corners clear of the feet.
 //
-// MOUTH BEVEL (oled_bevel_*): the sculpted screen plaque is only ~40mm wide but the
-// OLED's lit area is 55.4, so the window HAS to cut through the folded paws - their
-// tips sit right in front of the screen's outer 8mm. Raycast of the sculpt along the
-// window outline: the plaque face is at Y~53.4 while the paw tips reach Y 62.95, so
-// a plain prism sliced them with a ~10mm-deep vertical wall and a knife-sharp
-// crescent edge (plus a razor fin where the plaque's bezel groove was clipped).
-// The fix is a countersink that only bites where the skin BULGES FORWARD: the cut
-// keeps the exact aperture behind oled_bevel_y0 (=58, behind every part of the
-// plaque, so no pixels are lost) and flares outward from there, reaching
-// oled_bevel_c at oled_bevel_y1. The flare is therefore inert over the plaque, the
-// belly and the feet (all behind Y58) and turns the paw slice into a ~40 deg bevel.
-// The bevel is also clipped to Z >= oled_bevel_z0 so it only ever touches the PAWS.
-// Without that clip it reached the FEET too: the window's bottom corners pass within
-// ~2mm of the legs, whose fronts bulge to Y 64..67.7, so the flare scooped up to 5mm
-// out of each shin. At Z40 nothing within reach of the flare is in front of Y58 (the
-// belly there is at Y~51-52), so the clip edge itself is invisible.
+// The paws are NOT handled here any more. The plaque is only ~40mm wide while the
+// lit area is 55.4, so the window's side edges land on the folded paws; the previous
+// fix was a countersink (oled_bevel_*) that flared the whole window outline 5mm
+// outward wherever the skin bulged past Y58. It worked in the sense that the paw
+// slice was no longer a 10mm vertical wall, but it left two big flat "wings" either
+// side of the screen whose outer edge was a hard crescent line - which is exactly
+// what the arms looked wrong from. The paws are now SHORTENED instead (see
+// arm_trim() below), so by the time this aperture is cut there is nothing standing in
+// front of the screen and a plain prism is all that is needed. No bevel, no wings.
 oled_corner_r  = 8;
-oled_bevel_y0  = 58;   // bevel starts here; behind this the aperture is exact
-oled_bevel_y1  = 65;   // ... fully open by here (past the belly's front peak ~67)
-oled_bevel_c   = 5;    // outward offset at y1 -> ~35 deg wall on the paw tips
-oled_bevel_z0  = 40;   // only bevel above this Z (paws yes, feet/legs no)
 // The aperture outline: a w x h box with its corners rounded hard INWARD, so the
 // straight-edge spans stay the full w and h (no pixels lost - the lit area's corners
-// are blank). `g` grows it outward for the bevel.
+// are blank). `g` grows it outward (used by the paw trim to keep its clearance).
 module oled_outline(w, h, g = 0) {
     offset(delta = g)
         offset(r = oled_corner_r) offset(delta = -oled_corner_r)
@@ -104,34 +103,13 @@ module panda_oled_cut() {
     // lifted the whole window 3.1mm above the actual screen, which both misaligned
     // the aperture and ran its top corner arc straight along the armpit crease at
     // Z~63, leaving a razor lip that broke into two pin-holes.
-    translate([oled_active_dx, 0, screen_cz]) {
-        // 1. the aperture itself: exact size, starting OUTSIDE the belly and running
-        //    back through the body. rotate([90,0,0]) makes linear_extrude (+Z) point
-        //    in -Y, i.e. INTO the body. This must span the full depth on its own: the
-        //    bevel below is clipped in Z, so it cannot be relied on to open the mouth.
+    // The cut starts OUTSIDE the belly and runs back through the body;
+    // rotate([90,0,0]) makes linear_extrude (+Z) point in -Y, i.e. INTO the body.
+    translate([oled_active_dx, 0, screen_cz])
         translate([0, belly_face_y, 0])
             rotate([90, 0, 0])
                 linear_extrude(height = cut_depth)
                     oled_outline(w, h);
-        // 2. the mouth bevel: a linear flare from the aperture at y0 out to +c at y1,
-        //    then straight on out past the belly. Both outlines are convex, so hull()
-        //    gives exactly the tapered prism. Clipped to Z >= oled_bevel_z0 (panda
-        //    frame) so it shapes the paw tips and leaves the legs alone.
-        intersection() {
-            union() {
-                hull() {
-                    translate([0, oled_bevel_y0, 0]) rotate([90, 0, 0])
-                        linear_extrude(0.01) oled_outline(w, h);
-                    translate([0, oled_bevel_y1, 0]) rotate([90, 0, 0])
-                        linear_extrude(0.01) oled_outline(w, h, oled_bevel_c);
-                }
-                translate([0, belly_face_y, 0]) rotate([90, 0, 0])
-                    linear_extrude(belly_face_y - oled_bevel_y1)
-                        oled_outline(w, h, oled_bevel_c);
-            }
-            translate([-100, 0, oled_bevel_z0 - screen_cz]) cube([200, 200, 200]);
-        }
-    }
 }
 
 // Joystick opening: sized to the SLIM PRINTED CAP (joy_panel_open ~20mm), not
@@ -328,51 +306,111 @@ module panda_cavity_safe() {
     }
 }
 
-// ---- Shorten the folded arms so the screen never slices them ----------------
-// The sculpted plaque is only ~40mm wide but the OLED's lit area is 55.4, so the
-// window's side edges used to cut ~8mm into each paw, leaving a 10mm-deep slice.
-// Bevelling that only softened it. Instead SHORTEN the arms: intersect the body
-// with a copy of the SCULPT ITSELF shifted outboard by arm_shift. Where the shifted
-// copy is less proud than the original the arm is trimmed; where it is more proud
-// nothing happens. So each arm's inboard flank retreats by arm_shift wearing its own
-// natural end shape, and - because the two surfaces cross at the arm's crest - the
-// blend is automatically TANGENTIAL (no crease, no flat facet, no step).
+// ---- Shorten the folded arms so they end in ball paws at the screen edge -----
+// WHAT THE ARMS ARE. Mesh scan of the sculpt: the arms are folded across the belly
+// and, at screen height, they ARE the body's flank - the front profile at Z56 climbs
+// smoothly from Y38.7 at X-52 to the paw crest Y61.5 at X-28 with no crease, i.e.
+// there is no belly surface hidden behind them. So they cannot be moved, re-modelled
+// or shaved flat: the cage needs that material (its front face is at Y40.35, only
+// ~13mm behind the paw crest) and the silhouette would collapse. Each arm runs
+// diagonally from the shoulder (X-44, Z68) down to a rounded paw whose tip reaches
+// X-20 at Z~50 - which is 7.7mm INSIDE the 55.4-wide OLED window.
 //
-// THE SHIFT MUST RUN ALONG THE ARM'S OWN AXIS (outboard AND up), not straight
-// outboard. The arm runs diagonally from the shoulder (X-40, Z68) down to the paw
-// (X-20, Z50), so sliding it back along that axis slides its flanks ALONG
-// THEMSELVES: nothing gets eroded sideways, the armpit crease and the arm/belly
-// crease survive, and the tip stays a rounded lobe. arm_shift is 12mm along that
-// axis, which pulls the paw clear of the aperture (wall at the window edge drops
-// from 9.5mm to 1.5..2.4mm) while still reading as an arm.
+// WHAT WE DO. Only the paw TIPS are in the way, so only they are trimmed:
+//     remove   arm_box - arm_solid
+//   * arm_box    = everything in FRONT of the bezel plane (arm_y) inside the arm zone
+//   * arm_solid  = an idealised arm: a chain of hulled spheres whose centres all lie
+//                  ON the bezel plane, ending in a BALL tangent to the window
+//                  aperture with paw_gap of clearance.
+// Everything in the box that is not inside the chain is planed off to the bezel
+// plane, so each arm keeps its sculpted shape outboard and ends in a smooth
+// spherical dome that just kisses the window rim. Because the sphere centres sit on
+// the bezel plane, the surviving surface is a rolling-ball sweep - tangent-continuous
+// along the arm and tangent to the aperture wall at the contact point, so there is no
+// crescent knife-edge (the old bevel's failure) and no flat facet.
 //
-// Two earlier versions are worth not repeating:
-//  * A straight-outboard shift erodes the inboard flank along its whole length and
-//    opens an 8mm trench from the shoulder down to the screen.
-//  * Fixing that with a floor plane (only trim skin proud of Y54) is worse: where
-//    the shifted skin falls below the floor the cut bottoms out FLAT, leaving a
-//    plateau up to 9mm wide with a 4mm cliff on its inboard side where the belly
-//    drops into the armpit. That plateau is the "pointy beak" above the paw.
-// The axis shift needs no such floor - arm_ymin is only a deep guard that nothing
-// ever reaches, so there is no artificial flat anywhere on the result.
+// WHY A PLAIN BOX IS SAFE - this is the whole trick. Every face of the box sits where
+// the sculpted skin is ALREADY BEHIND the bezel plane, so the cut has zero depth
+// there and can leave no step. Measured max skin Y on each face (ignoring points
+// inside the aperture outline, which get cut away anyway), both arms:
+//     X = -46 -> 50.6        Z = 40 -> 52.4   (the feet top out at Z39.4)
+//     X = -19 -> all inside the aperture      Z = 64 -> 50.8
+// all comfortably under arm_y = 53.4, and the verified worst step is 0.00mm on all
+// four faces. Inside the box the cut self-terminates where the skin drops below the
+// bezel plane (~Z62 above, ~Z41 below, ~X-43 outboard), and measured removal
+// outboard of X-36 is 0.00mm, so the arm's own shape is untouched except at the tip.
+// NOTE the Z=40 face has only 0.6mm of clearance over the feet - do not lower it.
 //
-// The zone is a plain box: measured removal is 0 on every face of it (0 outboard of
-// X-60, 0 above Z76 where the arm has merged into the shoulder, and below Z38 only
-// inside the aperture, which is cut away anyway). The BACK never trims - the copy is
-// sampled nearer the centre, where the body is thicker. Only the -X arm is built;
-// the +X arm is its mirror.
-arm_shift = [-8.9, 0, 8.0];   // 12mm, along the arm's axis (outboard + up)
-arm_ymin  = 46;               // deep guard; the trim never reaches it
-arm_zone  = [[-60, 38], [-18, 76]];    // [[x0,z0],[x1,z1]] of the trim zone
-module arm_trim_pass(shift, ymin, zone) {
-    difference() {
-        translate([zone[0][0], ymin, zone[0][1]])
-            cube([zone[1][0] - zone[0][0], 120, zone[1][1] - zone[0][1]]);
-        translate(shift) panda_raw();                 // outboard for the -X arm
-    }
+// BALL RADIUS = HOW MUCH OF THE SCULPTED PAW SURVIVES, and it is the one knob that
+// really matters here. Wherever the ball is tangent to the window it reaches the same
+// place (|X| = 27.7 + paw_gap) whatever its radius, but a BIG ball leans away from the
+// window much more slowly, so it undercuts far less of the paw behind the contact.
+// Measured, per arm, over the visible region (outboard of the window rim):
+//     r=10 -> paw reshaped out to X-32.5, 259 units of material off
+//     r=14 -> ................. X-31.2, 151
+//     r=16 -> ................. X-30.7, 135   <- shipped
+//     r=20 -> ................. X-30.2, 112
+// and the flank the ball leaves at the paw's crest (9.5mm above the bezel plane) is
+// 18deg from horizontal at r=10 (i.e. it planes the crest almost flat), 47deg at
+// r=14, 54deg at r=16 - against ~48deg for the sculpt's OWN paw flank. So r=16 is
+// essentially "the sculpted paw with its inboard 2.5mm rolled off to meet the rim":
+// everything outboard of X-30.7 is bit-for-bit the original sculpt.
+//
+// THE CHAIN is solved against the aperture outline: a sphere of radius r at height z
+// can reach inboard to |X| = aperture(z) - r - paw_gap at best. The paw ball sits on
+// that limit at paw_z so it touches the window's straight side edge, and the next two
+// spheres pull OUTBOARD as they rise, so the contact is a shallow ARC (closest at
+// paw_z, easing away above and below) rather than a straight line running down the
+// side of the screen - that reads as a paw touching the screen instead of an arm
+// glued to it. Exposed bezel band between the window rim and the paw, measured on
+// the final mesh: 0.5mm at the contact, 0.7..1.6mm over Z41..52, 2.2..4.8mm over
+// Z55..58, and 8.7mm at Z60, where the aperture's own corner arc curves inboard
+// faster than any ball can follow. The band is flat and flush with the sculpted
+// plaque face, so it reads as the screen's bezel.
+//
+// Approaches that do NOT work - do not go back to them:
+//  * Intersecting with a copy of the whole sculpt shifted along the arm axis. It
+//    self-blends nicely but the shifted copy samples the belly BELOW the arm, which
+//    is lower, so anything past ~12mm of shift erodes a diagonal swath across the
+//    whole belly (up to 8mm at Z50) and breaks out of its own zone at Z38.
+//  * Cutting the paw off and re-attaching it further out (the obvious "just shorten
+//    the arm"). A rigid slide cannot work: the arm is fused to the belly along its
+//    whole length and the belly falls away steeply outboard (at Z50 the skin drops
+//    from Y52.9 at X-44 to Y34.2 at X-52), so a paw slid 8mm outboard ends up
+//    hanging in mid-air off the flank, and slid along the arm axis it drags the whole
+//    ridge with it, leaving a flat gap where it came from. Only a non-rigid squash
+//    would do it, which is not available on an imported mesh.
+//  * Bevelling the window instead (oled_bevel_*): produced the flat "wings".
+// Only the -X arm is built; the +X arm is its mirror (the sculpt is symmetric to
+// within 0.3mm at the window edge).
+paw_trim  = true;                       // false = trust the sculpt's own arms (re-sculpt)
+arm_y     = 53.4;                       // bezel plane = the sculpted plaque's face
+paw_r     = 16;                         // paw ball radius (see above - bigger = less cut)
+paw_gap   = fit_gap;                    // ball-to-window-rim clearance (0.4)
+paw_x     = -(oled_active_w + fit_gap)/2 - paw_r - paw_gap;   // -44.1
+paw_z     = 47;                         // contact height (on the aperture's straight edge)
+// [x, z, r] - sphere centres, all on the bezel plane (y = arm_y)
+arm_chain = [[paw_x, paw_z, paw_r],     // the paw ball, tangent to the window rim
+             [-46.0, 58,    16],        // easing outboard as the arm rises
+             [-51.0, 70,    15]];       // up the arm, well clear; carries the trim out
+arm_zone  = [[-46, 40], [-19, 64]];     // [[x0,z0],[x1,z1]] of the trim box
+arm_box_d = 40;                         // box depth in +Y (skin peaks at ~63)
+module arm_solid() {
+    for (i = [0 : len(arm_chain) - 2])
+        hull() {
+            translate([arm_chain[i][0],   arm_y, arm_chain[i][1]])
+                sphere(r = arm_chain[i][2]);
+            translate([arm_chain[i+1][0], arm_y, arm_chain[i+1][1]])
+                sphere(r = arm_chain[i+1][2]);
+        }
 }
 module arm_trim() {
-    arm_trim_pass(arm_shift, arm_ymin, arm_zone);
+    difference() {
+        translate([arm_zone[0][0], arm_y, arm_zone[0][1]])
+            cube([arm_zone[1][0] - arm_zone[0][0], arm_box_d,
+                  arm_zone[1][1] - arm_zone[0][1]]);
+        arm_solid();
+    }
 }
 
 // ---- Base hatch: open the underside so the cage slides in ------------------
@@ -430,8 +468,10 @@ module panda_body() {
         panda_base_hatch();
         panda_base_rebate();
         panda_magnet_pockets();
-        arm_trim();
-        mirror([1, 0, 0]) arm_trim();
+        if (paw_trim) {
+            arm_trim();
+            mirror([1, 0, 0]) arm_trim();
+        }
     }
 }
 

@@ -12,6 +12,8 @@ be opened to service the clock.
 | `dimensions.scad` | Every component measurement + design decision, in ONE place. **Edit here.** |
 | `helpers.scad` | Shared shape modules (rounded box, screw boss, etc.). |
 | `cage.scad` | The electronics cage - the real mechanical part. Print-ready. |
+| `panda.scad` | The panda body: imports the sculpt, hollows it, cuts the openings. |
+| `fitcheck.scad` | Seats the cage in the body (ghost / section / breach modes). |
 | `layout_backwall.scad` | 2D map of the back-wall board layout (collision check). |
 | `render_previews.sh` | Renders `previews/*.png`. |
 
@@ -43,6 +45,37 @@ openscad -o cage.stl      -D 'part="cage"'      cage.scad
 openscad -o esp32_bar.stl -D 'part="esp32_bar"' cage.scad
 openscad -o dfp_bar.stl   -D 'part="dfp_bar"'   cage.scad
 ```
+
+## The panda body (`panda.scad`)
+
+Imports `panda/panda_original.stl` (never edited in place), scales it to 160 mm,
+hollows only where the cage sits, and cuts the OLED window, the joystick cone, the
+speaker chimney into the hollow head, the ear grilles, and the base hatch/rebate.
+Needs the **Manifold** backend (`--backend=Manifold`); the 500k-triangle mesh is
+far too slow for CGAL.
+
+**The folded arms / paw ends.** The OLED's lit area is 55.4 mm wide but the sculpted
+belly plaque is only ~40 mm, so the window's side edges land on the sculpt's folded
+paws. The arms cannot be relocated - at screen height they *are* the body's flank
+(there is no belly surface behind them), the cage needs that material, and the belly
+falls away too steeply outboard for a rigid slide to work - so instead each paw is
+**shortened, with its inboard tip rolled off to stop 0.4 mm short of the window
+rim**: everything in front of a bezel plane (`arm_y`, the plaque's own face level)
+inside a box around the arm is planed off, except an idealised arm - `arm_chain`, a
+chain of hulled spheres centred on that plane whose first sphere is tangent to the
+aperture. Because the sphere centres lie on the bezel plane, the surviving surface is
+a rolling-ball sweep: smooth along the arm and tangent to the window rim instead of
+sliced.
+
+`paw_r` is the knob that matters. Wherever the ball touches the window it reaches the
+same place whatever its radius, but a big ball leans away much more slowly and so
+undercuts far less of the paw behind the contact - at `paw_r = 16` only a ~3 mm strip
+of each paw is reshaped and everything outboard of X-31 is bit-for-bit the original
+sculpt (checked against the raw mesh: front-Y 62.5 at X-31, Z50, both before and
+after). Every face of the trim box sits where the sculpted skin is already behind the
+bezel plane (verified: 0.00 mm step on all four faces, 0.00 mm removed outboard of
+X-37), so the cut leaves no steps anywhere. This replaces an earlier countersink
+around the window (`oled_bevel_*`), which left two flat "wings" beside the screen.
 
 ## Rendering previews
 
