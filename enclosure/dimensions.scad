@@ -56,6 +56,51 @@ oled_hole_d     = 2.5;    // mounting-hole diameter (M2 clearance) [measured]
 oled_depth_bare = 6.23;   // glass front -> back of PCB          [measured]
 oled_depth_hdr  = 12.55;  // glass front -> back of soldered header [measured]
 
+// ---- THE BELLY WINDOW: smaller than the lit area, and why -------------------
+// The window through the panda's belly is NOT the full 55 x 28 lit area. It is
+// sized to the sculpt's own embossed screen plaque, which is smaller.
+//
+// THE SCULPT ALREADY HAS A SCREEN. Measured on panda_original.stl (raycast grid
+// over the belly; plaque reference surface fitted as Y = 60.207 - 0.14885*z
+// - 0.004622*x^2, residual sd 0.27mm; edges taken as the first departure >0.8mm):
+// there is a crisp raised frame, ~1mm proud, enclosing the flat "88:45" plaque -
+//     bottom edge  Z 35.2      (flat to +-0.1mm across the whole width)
+//     top edge     Z 57.25     (flat to +-0.05mm)
+//     -X edge      18.20 .. 18.80    narrowest 18.20 at Z56
+//     +X edge      19.05 .. 19.60    (the sculpt sits ~0.4mm off-centre in X)
+// i.e. a flat interior of 36.4 x 22.05mm. The window is sized to sit just INSIDE
+// that, so the sculpted frame becomes the screen's bezel - which is plainly what
+// it was modelled to be.
+//
+// WHY NOT THE FULL LIT AREA. The lit area is 55mm wide, the plaque only 36.4. A
+// 55.4-wide window overhangs the plaque by 9.5mm per side and lands squarely on
+// the folded paws (measured: the paw's inboard edge reaches X-19.6 at Z51, 8.1mm
+// inside such a window). Everything tried to make room for it failed:
+//   * countersinking the window (oled_bevel_*): left two flat "wings" beside the
+//     screen ending in a hard crescent line.
+//   * a rolling-ball paw trim (panda.scad's old arm_trim()): rolled the sculpted
+//     paw tips off into a spherical dome.
+//   * swinging the arms outboard in Blender first (panda_arms.py): worked for the
+//     paws, but there are only 2.6mm of surface between the paw's underside
+//     (Z42) and the top of the feet (Z39.4), so the deformation's taper either
+//     sheared the feet into POINTY TIPS or tore a serrated ridge across the
+//     belly. Swept ~30 configurations plus a biharmonic solve; the best still
+//     rotated the legs 13mm and widened the stance. It is a hard geometric
+//     conflict, not a tuning problem.
+// Narrowing the window to the plaque removes the conflict entirely: nothing needs
+// to be trimmed, deformed or re-sculpted, and the sculpt is used exactly as it is.
+//
+// THE COST, and it lands on the FIRMWARE, not the CAD: only part of the panel is
+// visible. At 55.0/128 = 0.4297mm and 28.0/64 = 0.4375mm per pixel, this window
+// exposes pixels x 22..105 and y 8..55 - an 84 x 48 safe area out of 128 x 64.
+// Anything drawn outside that is hidden behind the belly. src/Display.cpp centres
+// on the full 128 and puts icons in the corners, so it needs a safe-area pass.
+// Note "HH:MM" in the GFX classic font at size 3 is 87px of ink, which does NOT
+// fit 84 - the time needs size 2, or a custom narrow-colon layout.
+oled_win_w      = 36.0;   // belly window width  (X) - 0.2mm inside the frame
+oled_win_h      = 21.0;   // belly window height (Z) - 0.3mm bottom, 0.75mm top
+oled_win_r      = 3.0;    // corner radius; the frame's own corners are ~3mm
+
 // ---- ESP32 DevKit (DollaTek 30-pin) ---------------------------------------
 esp_w           = 53.20;  // board length (X) [measured]
 esp_h           = 28.40;  // board width  (Y) [measured]
@@ -227,6 +272,31 @@ magnet_count    = 4;      // one near each corner of the base rim
 //   side  pair  cage (+-43, -16)  ->  panda (+-43, 26)  over the side collar
 // (a side pair at panda |X|44 was tried first and fails: still outside the skin at
 // Z2, because the base tapers in toward the floor.)
+// NOTE: the cage's outer dimensions are defined HERE, above the base-flange
+// block, because flange_xw / front_yf / back_yb / mag_ear_root are computed FROM
+// them. They used to live ~30 lines further down, which made all four evaluate to
+// undef (OpenSCAD does not forward-reference) and silently fed garbage into
+// base_flange_2d() - so the cage's base flange, the panda's base rebate and the
+// magnet ears were all being built from undef. Keep this order.
+// The cage: front face (OLED over joystick) faces the belly; slides in from the
+// BASE; speaker on top fires up the neck into the head cavity (~Z128+).
+cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
+cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
+                          //   (devices overlap in Z at different depths to fit
+                          //   the panda belly); OLED top ~62 + speaker margin
+// DEPTH (Y): the panda torso is ROUND, so a deep rectangular cage pokes its
+// front/back CORNERS out through the belly and shoulders (the old cage_d=80 with
+// square-ish corners breached the skin at nearly every Z - confirmed by the
+// breach fit-check). The mesh was re-analysed this session (raw skin -> per-Z
+// angular radius map): the usable window is front belly ~Y44 at the corners, back
+// ~Y-16, ~75 wide, necking in toward the top where the arms fold. Depth only needs
+// ~45mm internally (front stack ~19 + back stack ~21 + wiring), so 60mm outer is
+// roomy AND fits the round torso. The corner relief that makes it fit is captured
+// in shell_prof (below) - a per-height chamfer that keeps the walls FLAT where the
+// boards mount and only trims the feature-free corners.
+cage_d          = 60;     // outer depth  (Y) - was 80 (corners breached the belly)
+cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
+
 rim_h           = magnet_t + 1.2;   // flange thickness: magnet depth + backing (4.2)
 front_rim       = 4;      // flange's outward rim at the FRONT (over the feet)
 side_rim        = 3;      // ... and on the SIDES
@@ -257,24 +327,6 @@ washer_t        = 1.2;    // [unused]
 panda_scale     = 166.7;  // normalized-units -> mm, gives ~160mm tall
 panda_h         = 160;    // final height (Z) [target]
 panda_w         = 115;    // approx overall width at the base
-// The cage: front face (OLED over joystick) faces the belly; slides in from the
-// BASE; speaker on top fires up the neck into the head cavity (~Z128+).
-cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
-cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
-                          //   (devices overlap in Z at different depths to fit
-                          //   the panda belly); OLED top ~62 + speaker margin
-// DEPTH (Y): the panda torso is ROUND, so a deep rectangular cage pokes its
-// front/back CORNERS out through the belly and shoulders (the old cage_d=80 with
-// square-ish corners breached the skin at nearly every Z - confirmed by the
-// breach fit-check). The mesh was re-analysed this session (raw skin -> per-Z
-// angular radius map): the usable window is front belly ~Y44 at the corners, back
-// ~Y-16, ~75 wide, necking in toward the top where the arms fold. Depth only needs
-// ~45mm internally (front stack ~19 + back stack ~21 + wiring), so 60mm outer is
-// roomy AND fits the round torso. The corner relief that makes it fit is captured
-// in shell_prof (below) - a per-height chamfer that keeps the walls FLAT where the
-// boards mount and only trims the feature-free corners.
-cage_d          = 60;     // outer depth  (Y) - was 80 (corners breached the belly)
-cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
 // The cage front (belly) face lands at this PANDA Y. Belly surface over the window
 // is Y~64-67 at centre but only ~48-50 at the corners; the rounded front face sits
 // just inside it, leaving a thin belly wall the window pierces (a shallow recessed

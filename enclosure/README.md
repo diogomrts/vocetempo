@@ -16,6 +16,7 @@ be opened to service the clock.
 | `fitcheck.scad` | Seats the cage in the body (ghost / section / breach modes). |
 | `layout_backwall.scad` | 2D map of the back-wall board layout (collision check). |
 | `render_previews.sh` | Renders `previews/*.png`. |
+| `verify_window.py` | Blender check: proves the OLED window's rim lands on flat plaque with the sculpted frame intact. Run it after touching `oled_win_*`. |
 
 ## The cage (`cage.scad`)
 
@@ -48,34 +49,83 @@ openscad -o dfp_bar.stl   -D 'part="dfp_bar"'   cage.scad
 
 ## The panda body (`panda.scad`)
 
-Imports `panda/panda_original.stl` (never edited in place), scales it to 160 mm,
-hollows only where the cage sits, and cuts the OLED window, the joystick cone, the
-speaker chimney into the hollow head, the ear grilles, and the base hatch/rebate.
-Needs the **Manifold** backend (`--backend=Manifold`); the 500k-triangle mesh is
-far too slow for CGAL.
+Imports `panda/panda_original.stl` **untouched**, hollows only where the cage sits,
+and cuts the OLED window, the joystick cone, the speaker chimney into the hollow head,
+the ear grilles, and the base hatch/rebate. Needs the **Manifold** backend
+(`--backend=Manifold`); the 500k-triangle mesh is far too slow for CGAL.
 
-**The folded arms / paw ends.** The OLED's lit area is 55.4 mm wide but the sculpted
-belly plaque is only ~40 mm, so the window's side edges land on the sculpt's folded
-paws. The arms cannot be relocated - at screen height they *are* the body's flank
-(there is no belly surface behind them), the cage needs that material, and the belly
-falls away too steeply outboard for a rigid slide to work - so instead each paw is
-**shortened, with its inboard tip rolled off to stop 0.4 mm short of the window
-rim**: everything in front of a bezel plane (`arm_y`, the plaque's own face level)
-inside a box around the arm is planed off, except an idealised arm - `arm_chain`, a
-chain of hulled spheres centred on that plane whose first sphere is tangent to the
-aperture. Because the sphere centres lie on the bezel plane, the surviving surface is
-a rolling-ball sweep: smooth along the arm and tangent to the window rim instead of
-sliced.
+Nothing in this pipeline trims, deforms or re-sculpts the mesh. Every opening is
+sized to fit a feature the sculptor already put there.
 
-`paw_r` is the knob that matters. Wherever the ball touches the window it reaches the
-same place whatever its radius, but a big ball leans away much more slowly and so
-undercuts far less of the paw behind the contact - at `paw_r = 16` only a ~3 mm strip
-of each paw is reshaped and everything outboard of X-31 is bit-for-bit the original
-sculpt (checked against the raw mesh: front-Y 62.5 at X-31, Z50, both before and
-after). Every face of the trim box sits where the sculpted skin is already behind the
-bezel plane (verified: 0.00 mm step on all four faces, 0.00 mm removed outboard of
-X-37), so the cut leaves no steps anywhere. This replaces an earlier countersink
-around the window (`oled_bevel_*`), which left two flat "wings" beside the screen.
+## The OLED window is smaller than the screen, on purpose
+
+The sculpt **already has a screen**: a raised frame, ~1 mm proud, enclosing the flat
+embossed "88:45" plaque. Measured on `panda_original.stl` (raycast grid, plaque
+surface fitted as `Y = 60.207 - 0.14885z - 0.004622x²`, edges taken as the first
+departure > 0.8 mm):
+
+| edge | measured | flatness |
+|---|---|---|
+| bottom | Z 35.2 | ±0.1 mm across the full width |
+| top | Z 57.25 | ±0.05 mm |
+| −X | 18.20 … 18.80 mm | narrowest 18.20 at Z56 |
+| +X | 19.05 … 19.60 mm | sculpt sits ~0.4 mm off-centre in X |
+
+That is a flat interior of **36.4 × 22.05 mm**, so the window is `oled_win_w × oled_win_h`
+= **36 × 21 mm**, sized to sit just inside it. The sculpted frame becomes the bezel -
+which is plainly what it was modelled to be. Verified on the final cut body: worst rim
+deviation from the flat plaque **+0.15 mm**, and the frame's rise stays **≥0.35 mm**
+outboard of the rim all the way round.
+
+```sh
+cd enclosure
+openscad --backend=Manifold -o /tmp/panda.stl panda.scad
+blender -b -P verify_window.py -- /tmp/panda.stl
+```
+
+Measure before you believe. An earlier version of this pipeline was signed off on
+three sampled Z slices and shipped a defect - pointy leg tops and a serrated ridge
+across the belly - that a whole-body check caught immediately. Any change to the
+sculpt or the openings should be verified over the *entire* model, not at spot
+heights: per-band displacement, plus per-edge dihedral angle before vs after, which
+is what actually detects a smooth feature turning into a sharp one.
+
+### Why not the full 55 mm lit area
+
+The lit area is 55 mm wide, the plaque only 36.4. A 55.4-wide window overhangs by
+9.5 mm per side and lands squarely on the folded paws - the paw's inboard edge reaches
+X−19.6 at Z51, **8.1 mm inside** such a window. Everything tried to make room failed:
+
+- **countersinking the window** (`oled_bevel_*`) - left two flat "wings" beside the
+  screen ending in a hard crescent line.
+- **a rolling-ball paw trim** (`arm_trim()`) - tangent-continuous and facet-free, but
+  it still rolled the sculpted paw tip into a spherical dome and planed its crest.
+- **intersecting with a shifted copy of the sculpt** - the shifted copy samples the
+  belly *below* the arm, so past ~12 mm it erodes a diagonal swath across the belly.
+- **swinging the arms outboard in Blender first** (`panda_arms.py`) - this freed the
+  paws cleanly, and was shipped briefly. But there are only **2.6 mm** of surface
+  between the paw's underside (Z42) and the top of the feet (Z39.4), and the swing's
+  taper has to collapse ~12 mm of movement across it. Put the taper above the feet and
+  it tears a serrated ridge across the belly (900+ inverted triangles); run it through
+  the feet and it shears their tops into **pointy tips**. ~30 envelope configurations
+  were swept, plus a biharmonic (thin-plate) solve with the paw as a handle and the
+  feet pinned - the solve came out **20× worse** (3,600 new creases vs 149), because
+  the sculpt's triangulation (21:1 edge lengths, 22,757 low-quality triangles, 19% of
+  cotangent weights negative) is far too irregular for a Laplacian method. The best
+  result still rotated the legs 13 mm and visibly widened the stance.
+
+It is a hard geometric conflict, not a tuning problem. Sizing the window to the plaque
+dissolves it. **Do not re-litigate this without reading `dimensions.scad`'s window
+block first.**
+
+### The cost lands on the firmware
+
+Only part of the panel is visible. At 55.0/128 = 0.4297 mm and 28.0/64 = 0.4375 mm per
+pixel, this window exposes pixels **x 22..105, y 8..55** - an **84 × 48 safe area** out
+of 128 × 64. Anything outside it is hidden behind the belly. `src/Display.cpp` currently
+centres on the full 128 and puts the quiet-hours and mute icons in the corners, so it
+needs a safe-area pass. Note `"HH:MM"` in the GFX classic font at size 3 is 87 px of
+ink, which does **not** fit 84 - the time needs size 2, or a custom narrow-colon layout.
 
 ## Rendering previews
 

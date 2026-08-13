@@ -58,9 +58,10 @@ render cage_back.png   "0,0,48,62,0,205,430" cage.scad
 "$SCAD" --backend=Manifold --render -o previews/panda_ear_grille.png --imgsize=800,800 \
   --camera=40,0,147,78,0,168,110 --projection=perspective \
   --colorscheme="$SCHEME" panda.scad
-# Close-up of the screen + the folded paws (see arm_trim() in panda.scad). Each paw
-# must end in a SMOOTH BALL that stops ~0.4mm short of the window rim: no slice, no
-# flat "wings" beside the screen, and nothing standing in front of the lit area.
+# Close-up of the screen + the folded paws. The paws are UNTOUCHED sculpt, and the
+# window is sized to fit between them (36mm, inside the sculpted plaque frame), so
+# each paw must show its full rounded shape with no slice, facet or flat "wings",
+# and the window rim must sit on flat plaque with the frame intact around it.
 "$SCAD" --backend=Manifold --render -o previews/panda_paws.png --imgsize=800,800 \
   --camera=-20,10,46,76,0,203,240 --projection=perspective \
   --colorscheme="$SCHEME" panda.scad
