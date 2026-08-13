@@ -69,28 +69,24 @@ screen_cz      = dev_oled_pz;    // OLED window centre (panda Z, on the screen p
 knob_cz        = dev_joy_pz;     // joystick centre (panda Z, on the knob)
 cut_depth      = 80;             // how far a cut solid reaches back from the surface
 
-// OLED window: cut a rectangle through the belly, sized to the sculpt's own
-// embossed screen plaque. The cut solid starts OUTSIDE the belly (+Y) and extrudes
-// back (-Y) through the body.
+// OLED window: cut the FULL lit-area rectangle through the belly. The cut solid
+// starts OUTSIDE the belly (+Y) and extrudes back (-Y) through the body.
 //
-// THE WINDOW IS SMALLER THAN THE LIT AREA, ON PURPOSE. It is oled_win_w x oled_win_h
-// (36 x 21), not the 55 x 28 lit area. dimensions.scad has the full rationale and
-// the measurements; the short version is that the sculpt already HAS a screen - a
-// raised frame around a flat plaque, interior 36.4 x 22.05mm at Z35.2..57.25 - and
-// the window is sized to sit just inside it so that frame becomes the bezel. A
-// full-width 55.4 window overhangs that plaque by 9.5mm per side and lands on the
-// folded paws, and every attempt to make room for it (window countersink, rolling-
-// ball paw trim, swinging the arms outboard in Blender) damaged either the paws or
-// the legs. Nothing is trimmed or deformed now: the opening just fits the feature.
+// This window is the whole 55.4 x 28.4 lit area, because the requirement is that
+// every one of the 128x64 pixels is visible. The sculpt's folded paws stand in
+// front of it - their inboard edges reach X-19.6 at Z51 against the window's 27.7 -
+// so the cut takes 8.1mm off each paw over Z42..58 and leaves a flat vertical face
+// on its inboard side. That is deliberate. dimensions.scad's window block has the
+// measurements, the corner-radius table, and every alternative that was built and
+// rejected; read it before changing anything here.
 //
-// CLEARANCES with this window, measured on the raw sculpt: the paws' inboard edge
-// never comes closer than the frame (>=18.9mm half-width over Z44..57 vs the
-// window's 18.0), and the feet top out at Z39.4 well outboard of the window's
-// bottom corners. So a plain prism into flat plaque is all that is needed - no
-// bevel, no wings, no trim.
+// oled_win_r is small (2mm) ON PURPOSE. It does not affect the paw cut - that is
+// 8.10mm at every radius, because Z50 sits in the window's full-width span - it
+// only trades corner pixels against the feet. At r=2 just 4 of 8192 lit pixels are
+// hidden and the corner icons stay on screen, at the cost of a ~2mm nick in each
+// foot's top-inner corner. At the old r=8 the feet were untouched but 236 pixels
+// and both corner icons were lost.
 //
-// THE COST IS IN FIRMWARE: this exposes pixels x 22..105, y 8..55 - an 84 x 48 safe
-// area out of 128 x 64. See dimensions.scad.
 module oled_outline(w, h, r, g = 0) {
     offset(delta = g)
         offset(r = r) offset(delta = -r)

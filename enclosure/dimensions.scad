@@ -56,50 +56,57 @@ oled_hole_d     = 2.5;    // mounting-hole diameter (M2 clearance) [measured]
 oled_depth_bare = 6.23;   // glass front -> back of PCB          [measured]
 oled_depth_hdr  = 12.55;  // glass front -> back of soldered header [measured]
 
-// ---- THE BELLY WINDOW: smaller than the lit area, and why -------------------
-// The window through the panda's belly is NOT the full 55 x 28 lit area. It is
-// sized to the sculpt's own embossed screen plaque, which is smaller.
+// ---- THE BELLY WINDOW: the full lit area, and what it costs ----------------
+// DECISION (user): every one of the 128x64 pixels must be visible. So the window
+// is the whole lit area + fit_gap, 55.4 x 28.4, and the folded paws that stand in
+// front of it are simply CUT THROUGH. That is a deliberate trade, not an oversight
+// - the alternatives were measured and all cost more (see below).
 //
-// THE SCULPT ALREADY HAS A SCREEN. Measured on panda_original.stl (raycast grid
-// over the belly; plaque reference surface fitted as Y = 60.207 - 0.14885*z
-// - 0.004622*x^2, residual sd 0.27mm; edges taken as the first departure >0.8mm):
-// there is a crisp raised frame, ~1mm proud, enclosing the flat "88:45" plaque -
-//     bottom edge  Z 35.2      (flat to +-0.1mm across the whole width)
-//     top edge     Z 57.25     (flat to +-0.05mm)
-//     -X edge      18.20 .. 18.80    narrowest 18.20 at Z56
-//     +X edge      19.05 .. 19.60    (the sculpt sits ~0.4mm off-centre in X)
-// i.e. a flat interior of 36.4 x 22.05mm. The window is sized to sit just INSIDE
-// that, so the sculpted frame becomes the screen's bezel - which is plainly what
-// it was modelled to be.
+// WHAT GETS CUT. The paws' inboard edges reach X-19.6 at Z51 while the window needs
+// 27.7, so the cut takes 8.1mm off each paw, over Z42..58, leaving a flat vertical
+// face on the inboard side of each. The arms therefore end abruptly at the screen
+// rather than reading as folded. Nothing else on the body is touched.
 //
-// WHY NOT THE FULL LIT AREA. The lit area is 55mm wide, the plaque only 36.4. A
-// 55.4-wide window overhangs the plaque by 9.5mm per side and lands squarely on
-// the folded paws (measured: the paw's inboard edge reaches X-19.6 at Z51, 8.1mm
-// inside such a window). Everything tried to make room for it failed:
-//   * countersinking the window (oled_bevel_*): left two flat "wings" beside the
-//     screen ending in a hard crescent line.
-//   * a rolling-ball paw trim (panda.scad's old arm_trim()): rolled the sculpted
-//     paw tips off into a spherical dome.
-//   * swinging the arms outboard in Blender first (panda_arms.py): worked for the
-//     paws, but there are only 2.6mm of surface between the paw's underside
-//     (Z42) and the top of the feet (Z39.4), so the deformation's taper either
-//     sheared the feet into POINTY TIPS or tore a serrated ridge across the
-//     belly. Swept ~30 configurations plus a biharmonic solve; the best still
-//     rotated the legs 13mm and widened the stance. It is a hard geometric
-//     conflict, not a tuning problem.
-// Narrowing the window to the plaque removes the conflict entirely: nothing needs
-// to be trimmed, deformed or re-sculpted, and the sculpt is used exactly as it is.
+// THE CORNER RADIUS is the one real knob, and it does NOT affect the paw cut at all
+// (8.10mm at Z50.5 for every radius, because that height is in the window's
+// full-width span). It only trades CORNER PIXELS against the FEET, whose inner
+// edges come to |X| 24.7 at Z32. Measured:
+//     r      lit px hidden   corner icons   bite into the feet
+//     2.0        4 / 8192    both survive   2.1mm at Z32..35
+//     4.0       48           both clipped   1.1mm
+//     6.0      120           both clipped   0.04mm
+//     8.0      236           both clipped   none        <- what this used to be
+// r = 2.0 is chosen because the requirement is all pixels visible: it hides 4 of
+// 8192 (the single extreme pixel in each corner) and keeps the quiet-hours and mute
+// icons, which sit in the top corners, on screen. The price is a ~2mm nick out of
+// each foot's top-inner corner - next to an 8.1mm paw cut, it does not show.
 //
-// THE COST, and it lands on the FIRMWARE, not the CAD: only part of the panel is
-// visible. At 55.0/128 = 0.4297mm and 28.0/64 = 0.4375mm per pixel, this window
-// exposes pixels x 22..105 and y 8..55 - an 84 x 48 safe area out of 128 x 64.
-// Anything drawn outside that is hidden behind the belly. src/Display.cpp centres
-// on the full 128 and puts icons in the corners, so it needs a safe-area pass.
-// Note "HH:MM" in the GFX classic font at size 3 is 87px of ink, which does NOT
-// fit 84 - the time needs size 2, or a custom narrow-colon layout.
-oled_win_w      = 36.0;   // belly window width  (X) - 0.2mm inside the frame
-oled_win_h      = 21.0;   // belly window height (Z) - 0.3mm bottom, 0.75mm top
-oled_win_r      = 3.0;    // corner radius; the frame's own corners are ~3mm
+// WHAT WAS REJECTED, all built and measured:
+//  * Sizing the window to the sculpt's own embossed screen plaque (36 x 21mm, its
+//    raised frame becoming the bezel). Geometrically perfect - nothing trimmed or
+//    deformed, rim on flat plaque to +-0.15mm - but it only exposes an 84 x 48
+//    safe area of the panel, so a third of the pixels are hidden. Rejected.
+//  * Countersinking the window (oled_bevel_*): left two flat "wings" beside the
+//    screen ending in a hard crescent line.
+//  * A rolling-ball paw trim (arm_trim()): rolled the sculpted paw tip into a
+//    spherical dome and planed its crest.
+//  * Swinging the arms outboard in Blender first (panda_arms.py). This DID free the
+//    paws and keep them fully rounded, and it cleared this exact window with a
+//    1.3..2.1mm bezel. But there are only 2.6mm of surface between the paw's
+//    underside (Z42) and the top of the feet (Z39.4), so the swing's taper either
+//    tore a serrated ridge across the belly or sheared the leg tops into POINTY
+//    TIPS; the best of ~30 swept configurations still rotated the legs 13mm and
+//    visibly widened the stance, and left only 1.3mm of bezel on the -X side (the
+//    sculpt's paws are not symmetric). A biharmonic solve was 20x worse still,
+//    because the sculpt's triangulation is far too irregular for a Laplacian
+//    method. Rejected as costing more than the paw cut it was avoiding.
+//  * A smaller 1.54" 128x64 panel (~35 x 17.5mm active) would fit the plaque
+//    entirely - all pixels, panda untouched, no firmware change - but needs a
+//    different module, a new cage OLED mount, and gives a much smaller clock.
+//    Worth revisiting if the sliced paws ever grate.
+oled_win_w      = 55.4;   // = oled_active_w + fit_gap; full lit width
+oled_win_h      = 28.4;   // = oled_active_h + fit_gap; full lit height
+oled_win_r      = 2.0;    // corner radius; see the table above before changing
 
 // ---- ESP32 DevKit (DollaTek 30-pin) ---------------------------------------
 esp_w           = 53.20;  // board length (X) [measured]

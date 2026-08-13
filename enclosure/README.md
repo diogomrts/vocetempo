@@ -16,7 +16,7 @@ be opened to service the clock.
 | `fitcheck.scad` | Seats the cage in the body (ghost / section / breach modes). |
 | `layout_backwall.scad` | 2D map of the back-wall board layout (collision check). |
 | `render_previews.sh` | Renders `previews/*.png`. |
-| `verify_window.py` | Blender check: proves the OLED window's rim lands on flat plaque with the sculpted frame intact. Run it after touching `oled_win_*`. |
+| `verify_window.py` | Blender check: pixel coverage of the OLED window + exactly where its cut lands on the sculpt. Run it after touching `oled_win_*`. |
 
 ## The cage (`cage.scad`)
 
@@ -57,75 +57,70 @@ the ear grilles, and the base hatch/rebate. Needs the **Manifold** backend
 Nothing in this pipeline trims, deforms or re-sculpts the mesh. Every opening is
 sized to fit a feature the sculptor already put there.
 
-## The OLED window is smaller than the screen, on purpose
+## The OLED window and the sliced paws
 
-The sculpt **already has a screen**: a raised frame, ~1 mm proud, enclosing the flat
-embossed "88:45" plaque. Measured on `panda_original.stl` (raycast grid, plaque
-surface fitted as `Y = 60.207 - 0.14885z - 0.004622x²`, edges taken as the first
-departure > 0.8 mm):
+**Requirement: every one of the 128×64 pixels must be visible.** So the window is
+the full lit area + `fit_gap` (`oled_win_w × oled_win_h` = 55.4 × 28.4 mm), and the
+sculpt's folded paws, which stand in front of it, are simply **cut through**. That is
+a deliberate trade. The paws' inboard edges reach X−19.6 at Z51 against the window's
+27.7, so the cut takes **8.1 mm off each paw** over Z42–58, leaving a flat vertical
+face on each. The arms end abruptly at the screen rather than reading as folded.
 
-| edge | measured | flatness |
-|---|---|---|
-| bottom | Z 35.2 | ±0.1 mm across the full width |
-| top | Z 57.25 | ±0.05 mm |
-| −X | 18.20 … 18.80 mm | narrowest 18.20 at Z56 |
-| +X | 19.05 … 19.60 mm | sculpt sits ~0.4 mm off-centre in X |
-
-That is a flat interior of **36.4 × 22.05 mm**, so the window is `oled_win_w × oled_win_h`
-= **36 × 21 mm**, sized to sit just inside it. The sculpted frame becomes the bezel -
-which is plainly what it was modelled to be. Verified on the final cut body: worst rim
-deviation from the flat plaque **+0.15 mm**, and the frame's rise stays **≥0.35 mm**
-outboard of the rim all the way round.
+Verify with:
 
 ```sh
-cd enclosure
-openscad --backend=Manifold -o /tmp/panda.stl panda.scad
-blender -b -P verify_window.py -- /tmp/panda.stl
+cd enclosure && blender -b -P verify_window.py
 ```
 
-Measure before you believe. An earlier version of this pipeline was signed off on
-three sampled Z slices and shipped a defect - pointy leg tops and a serrated ridge
-across the belly - that a whole-body check caught immediately. Any change to the
-sculpt or the openings should be verified over the *entire* model, not at spot
-heights: per-band displacement, plus per-edge dihedral angle before vs after, which
-is what actually detects a smooth feature turning into a sharp one.
+which checks pixel coverage and reports exactly where the cut lands. Current result:
+**8188 of 8192 lit pixels visible**, both corner icons on screen, 2.13 mm into the
+feet, 4.41 mm into the shoulder, 8.10 mm into the paws (deliberate).
 
-### Why not the full 55 mm lit area
+### The corner radius is the one real knob
 
-The lit area is 55 mm wide, the plaque only 36.4. A 55.4-wide window overhangs by
-9.5 mm per side and lands squarely on the folded paws - the paw's inboard edge reaches
-X−19.6 at Z51, **8.1 mm inside** such a window. Everything tried to make room failed:
+It does **not** affect the paw cut — that is 8.10 mm at *every* radius, because Z50
+sits in the window's full-width span. It only trades corner pixels against the feet,
+whose inner edges come to |X| 24.7 at Z32:
 
-- **countersinking the window** (`oled_bevel_*`) - left two flat "wings" beside the
-  screen ending in a hard crescent line.
-- **a rolling-ball paw trim** (`arm_trim()`) - tangent-continuous and facet-free, but
-  it still rolled the sculpted paw tip into a spherical dome and planed its crest.
-- **intersecting with a shifted copy of the sculpt** - the shifted copy samples the
-  belly *below* the arm, so past ~12 mm it erodes a diagonal swath across the belly.
-- **swinging the arms outboard in Blender first** (`panda_arms.py`) - this freed the
-  paws cleanly, and was shipped briefly. But there are only **2.6 mm** of surface
-  between the paw's underside (Z42) and the top of the feet (Z39.4), and the swing's
-  taper has to collapse ~12 mm of movement across it. Put the taper above the feet and
-  it tears a serrated ridge across the belly (900+ inverted triangles); run it through
-  the feet and it shears their tops into **pointy tips**. ~30 envelope configurations
-  were swept, plus a biharmonic (thin-plate) solve with the paw as a handle and the
-  feet pinned - the solve came out **20× worse** (3,600 new creases vs 149), because
-  the sculpt's triangulation (21:1 edge lengths, 22,757 low-quality triangles, 19% of
-  cotangent weights negative) is far too irregular for a Laplacian method. The best
-  result still rotated the legs 13 mm and visibly widened the stance.
+| `oled_win_r` | lit px hidden | corner icons | bite into the feet |
+| --- | --- | --- | --- |
+| **2.0 mm** (current) | **4 / 8192** | both survive | 2.1 mm at Z32–35 |
+| 4.0 mm | 48 | both clipped | 1.1 mm |
+| 6.0 mm | 120 | both clipped | 0.04 mm |
+| 8.0 mm | 236 | both clipped | none |
 
-It is a hard geometric conflict, not a tuning problem. Sizing the window to the plaque
-dissolves it. **Do not re-litigate this without reading `dimensions.scad`'s window
-block first.**
+r = 2.0 is chosen because the requirement is all pixels: it hides one pixel per
+corner and keeps the quiet-hours and mute icons, which live in the top corners, on
+screen. The price is a ~2 mm nick in each foot's top-inner corner — invisible next to
+an 8.1 mm paw cut.
 
-### The cost lands on the firmware
+### What was rejected
 
-Only part of the panel is visible. At 55.0/128 = 0.4297 mm and 28.0/64 = 0.4375 mm per
-pixel, this window exposes pixels **x 22..105, y 8..55** - an **84 × 48 safe area** out
-of 128 × 64. Anything outside it is hidden behind the belly. `src/Display.cpp` currently
-centres on the full 128 and puts the quiet-hours and mute icons in the corners, so it
-needs a safe-area pass. Note `"HH:MM"` in the GFX classic font at size 3 is 87 px of
-ink, which does **not** fit 84 - the time needs size 2, or a custom narrow-colon layout.
+All of these were built and measured:
+
+- **Sizing the window to the sculpt's own embossed screen plaque** (36 × 21 mm, its
+  raised frame becoming the bezel). Geometrically perfect — nothing trimmed or
+  deformed, rim on flat plaque to ±0.15 mm — but it exposes only an 84 × 48 safe area,
+  hiding a third of the panel. Rejected on the pixel requirement.
+- **Countersinking the window** (`oled_bevel_*`) — two flat "wings" beside the screen
+  ending in a hard crescent line.
+- **A rolling-ball paw trim** (`arm_trim()`) — rolled the sculpted paw tip into a
+  spherical dome and planed its crest.
+- **Swinging the arms outboard in Blender first** (`panda_arms.py`). This *did* free
+  the paws and keep them fully rounded, clearing this exact window with a 1.3–2.1 mm
+  bezel. But there are only **2.6 mm** of surface between the paw's underside (Z42)
+  and the top of the feet (Z39.4), so the swing's taper either tore a serrated ridge
+  across the belly or sheared the leg tops into **pointy tips**. The best of ~30 swept
+  configurations still rotated the legs 13 mm and visibly widened the stance, and left
+  only 1.3 mm of bezel on the −X side (the sculpt's paws are not symmetric). A
+  biharmonic thin-plate solve was **20× worse** (3,600 new creases vs 149), because
+  the sculpt's triangulation (21:1 edge lengths, 19% negative cotangent weights) is
+  far too irregular for a Laplacian method. Rejected as costing more than the paw cut
+  it was avoiding.
+- **A smaller 1.54" 128×64 panel** (~35 × 17.5 mm active) would fit the plaque
+  entirely — all pixels, panda untouched, no firmware change — but needs a different
+  module, a new cage OLED mount, and gives a much smaller clock. Worth revisiting if
+  the sliced paws ever grate.
 
 ## Rendering previews
 
