@@ -2,21 +2,21 @@
 
     blender -b -P verify_window.py -- [w] [h] [r] [cz]     (defaults: oled_win_*)
 
-The window is the FULL lit area and deliberately cuts through the folded paws, so
-there is no bezel band to measure. The two things that actually matter are:
+The window is the FULL lit area, and it is allowed to cut through whatever stands in
+front of it. The two things that actually matter are:
 
   1. PIXEL COVERAGE - the requirement is that every one of the 128x64 lit pixels is
      visible. Only the corner rounding can hide any, so this counts exactly how many
      fall outside the aperture and checks the UI elements that live in the corners.
 
-  2. WHERE THE CUT LANDS - the paws (Z42..58) are cut on purpose. The FEET (Z<40)
-     and the SHOULDERS (Z>58) are not, and the corner radius controls how far the
-     window's corners reach into them. This reports each separately against a budget.
+  2. WHERE THE CUT LANDS - on the 200mm host the folded paws are 25% further apart
+     and the window no longer reaches them at all (their inboard edge is at |X|29.5
+     at panda Z40 and |X|35.5 at Z47.8, against the window's 27.7). What is left is a
+     ~1mm nick in each foot's top-inner corner. This reports each separately.
 
-NOTE an earlier version measured a "bezel band" between the rim and the paw, which
-was the right check when the window was sized to sit inside the sculpted plaque. It
-is meaningless now (it reports a 0.2mm band, correctly, because the rim IS on the
-paw by design). Do not reintroduce it without also changing the design back.
+NOTE the constants below must match dimensions.scad / panda.scad. They are the
+DERIVED transform, not the old hand-fitted scale(166.7)/translate(26) - see
+probe_skin.scad_transform().
 """
 import bpy
 import math
@@ -26,22 +26,31 @@ import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-SRC = "/Users/diogomartins/Projects/vocetempo/enclosure/panda/panda_original.stl"
-PANDA_SCALE, SPIN_Y = 166.7, 26.0
+SRC = ("/Users/diogomartins/Projects/vocetempo/enclosure/panda/"
+       "panda_original_without_embosses.stl")
+PANDA_SCALE, SPIN_Y = 212.9096, 9.036
 
 a = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 W = float(a[0]) if len(a) > 0 else 55.4      # oled_win_w
 H = float(a[1]) if len(a) > 1 else 28.4      # oled_win_h
 R = float(a[2]) if len(a) > 2 else 2.0       # oled_win_r
-CZ = float(a[3]) if len(a) > 3 else 46.0     # dev_oled_pz
+CZ = float(a[3]) if len(a) > 3 else 47.8     # dev_oled_pz
 
 LIT_W, LIT_H = 55.0, 28.0                    # oled_active_w / _h
 NX, NY = 128, 64
 PX, PZ = LIT_W / NX, LIT_H / NY
 
 MAX_HIDDEN = 8          # lit pixels allowed outside the aperture
-MAX_FOOT_CUT = 2.5      # mm the window may reach into the feet (Z < 40)
-MAX_SHOULDER_CUT = 7.5  # ... and into the arm above the paw (Z > 58)
+MAX_FOOT_CUT = 2.5      # mm the window may reach into the feet (below Z_FOOT)
+MAX_PAW_CUT = 2.0       # ... into the folded paws. It used to be unbudgeted (the cut
+                        # was 8.1mm and deliberate); on the 200mm host it should be 0,
+                        # so budget it and find out if that ever stops being true.
+MAX_SHOULDER_CUT = 7.5  # ... and into the arm above the paw (above Z_SHOULDER)
+Z_FOOT, Z_SHOULDER = 50.0, 72.5     # region boundaries, panda Z (1.25x the 160mm
+                                    # values - these are sculpt features, so they
+                                    # scale with the host)
+BELLY_C = 0.0036976     # lateral belly curvature, y = y0 - C*x^2. Scales as 1/k
+                        # with the host (0.004622 at 160mm).
 
 fails = []
 
@@ -146,9 +155,9 @@ def obstruction(z):
             if prev is not None and v - prev > 2.0:              # cliff (feet)
                 found = x
                 break
-            # 5mm, not 3: the plaque's own decorative frame ridge reads ~3mm
-            # proud of this reference, and the window is MEANT to cut through that
-            # (it is the sculpted fake screen). The paws read 6..9mm.
+            # The de-embossed sculpt has no plaque ridge to ignore, so this could
+            # be tightened; 5mm is kept because the paws read 6..9mm proud and a
+            # looser threshold cannot false-positive on the smooth belly.
             if v - belly_ref(sgn * x, z, y0) > 5.0:              # proud (paws)
                 found = x
                 break
@@ -166,15 +175,17 @@ for z in np.arange(CZ - H / 2, CZ + H / 2 + 0.01, 1.0):
         continue
     e = obstruction(z)
     cut = max(0.0, w - e)
-    region = "foot" if z < 40 else ("shoulder" if z > 58 else "paw")
+    region = ("foot" if z < Z_FOOT
+              else ("shoulder" if z > Z_SHOULDER else "paw"))
     if cut > worst[region][0]:
         worst[region] = (cut, round(z, 1))
     log(f"  {z:5.1f} | {w:9.2f} | {e:11.2f} | {cut:9.2f} | {region}"
-        + ("  <- deliberate" if region == "paw" and cut > 0.1 else ""))
+        + ("  <- into the paw" if region == "paw" and cut > 0.1 else ""))
 
 log("")
-log(f"   note  paw cut (deliberate): {worst['paw'][0]:.2f}mm at Z{worst['paw'][1]}"
-    " - this is the design decision, not a defect")
+check(worst["paw"][0] <= MAX_PAW_CUT,
+      f"cut into the PAWS: {worst['paw'][0]:.2f}mm at Z{worst['paw'][1]}"
+      f" (budget {MAX_PAW_CUT}; at 160mm this was 8.10 and deliberate)")
 check(worst["foot"][0] <= MAX_FOOT_CUT,
       f"cut into the FEET: {worst['foot'][0]:.2f}mm at Z{worst['foot'][1]}"
       f" (budget {MAX_FOOT_CUT})")

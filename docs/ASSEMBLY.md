@@ -281,7 +281,8 @@ a part designed to come apart repeatedly.
 | Port | Where | Why |
 | --- | --- | --- |
 | USB-C | Slot in the body's rear, aligned with the sled's ESP32 | Reflash and power without removing the sled |
-| microSD | Reachable with the sled out | Rarely changed; not worth a body cutout |
+| microSD | Slot in the **base cover**, under the DFPlayer | Changeable without opening anything |
+| Joystick | Bore in the body's rear, at panda Z46 | The one control; stalk cap presses in from outside |
 | Amp vents | Slots low on the body's back | The DFPlayer's amp runs warm in a sealed box |
 
 Make the USB-C opening `esp_usb_w`/`esp_usb_h` plus `fit_gap`, and **oversize it
@@ -289,6 +290,38 @@ generously** - a couple of mm of slop is invisible from the front and saves a
 reprint when the sled sits 1 mm deeper than modelled. Remember the plug body is
 much larger than the receptacle: leave a shallow recess around the slot, or a
 chunky cable's moulding will hold the sled out by a millimetre or two.
+
+### How the charge cable actually gets out - READ THIS BEFORE BUYING A CABLE
+
+There is exactly **one** USB opening: a slot on the cage's **back wall** (cage Z22)
+with a matching hole through the rump. The cable enters **horizontally from behind**,
+at the height of the panda's lower back. It does **not** come out of the base - the
+base would put the cable under the panda, where it gets pinched and where the panda
+then will not sit flat.
+
+The other opening in the base cover is the **microSD slot**, under the DFPlayer.
+Different hole, different job.
+
+The ESP32 is portrait on the left wall with its USB-C facing **down**, so its
+receptacle mouth is at cage Z21.9 - and on the 200 mm host there are 21.9 mm below
+it before the cover ledge. A **straight** USB-C plug's moulding is 15-20 mm long, so
+for the first time it simply fits: the plug hangs down inside the cage and the cable
+turns out through the slot. (At 160 mm the mouth was at cage Z6.5, on top of the
+ledge, and a straight plug would have run out through the base cover into the table.)
+
+Two upgrades are still worth considering:
+
+1. **A right-angle USB-C cable.** The plug turns at the board edge and lies flat,
+   pointing back at the slot. Buy one that exits toward the *back*, not the side.
+   It is tidier than a straight plug and puts less leverage on the socket.
+2. **A panel-mount USB-C breakout in the slot** (best). The slot is deliberately
+   sized to `usb_flange_w`/`usb_flange_h` for exactly this, and two bosses are
+   already there for its screws. A short internal lead reaches the ESP32, the
+   external cable plugs into the panda's back, and the strain relief lands on the
+   printed part instead of on the ESP32's surface-mount socket.
+
+Option 2 also solves the strain-relief problem below, and means a stiff cable can
+never lever the cage out of its magnets.
 
 `esp_usb_out` is how far the receptacle overhangs the PCB edge, which sets how
 far back the ESP32 has to sit so the connector lands flush with the body wall.
@@ -322,8 +355,49 @@ enclosure and not on the connector.
 - Heat-shrink over every solder joint, including the speaker terminals.
 - Anchor bundles with adhesive tie-downs or printed loops so nothing rests on
   the DFPlayer's SD slot or the joystick's moving gimbal.
-- Nothing should touch the joystick body - it must be free to tilt its full
-  `joy_throw_a` (25 deg).
+- Nothing should touch the joystick body - it must be free to tilt. Note the cage
+  is built for `joy_use_tilt` (11 deg, plenty for d-pad use), **not** the stick's
+  full `joy_throw_a` of 23: the printed cap and the rump bore are sized to 11.
+
+---
+
+## 9a. Fitting the joystick and closing the base
+
+The joystick is on the **rump**, not the belly, and it bolts to the **OUTSIDE** of
+the cage's back wall - so it goes on before the cage goes in. Order matters here:
+
+1. Solder flying leads to the KY-023's 5-pin header. Unlike the old design you do
+   **not** have to desolder or flatten it: the header faces outward into the rump,
+   and the wires come back through a slot in the wall just below the board.
+2. Bolt the PCB to the four **standoffs on the back wall's outer face**, through the
+   module's own four holes (19.85 x 19.80). The gimbal points **away** from the
+   wall, into the rump; fit it with the gimbal's wide (23.40 mm, nub) axis running
+   **across X**, so the PCB's 32.30 mm dimension is horizontal. Four M3 self-tappers
+   from the rump side; do not overtighten a 0.92 mm PCB.
+3. Route the five leads through the wire slot under the board and into the cage.
+4. **Do not fit the thumb cap yet.** It presses on from *outside* the panda, once
+   the cage is in.
+5. Slide the cage up into the body. The whole assembly stands **14.68 mm** proud of
+   the cage's back face, far more than the base hatch clears, so it rides up the
+   stepped **insertion channel** moulded into the rump. If it fouls, the module is
+   rotated 90 deg (step 2) - the channel's outer step is only gimbal-wide.
+6. Press the printed **`joy_cap`** onto the stick through the rump bore. A drop of
+   CA - it is an 11 mm stalk on 5.95 mm of shaft engagement, so glue it. The oval
+   socket keys it against rotation; if it will not seat, you have it 90 deg out.
+7. Thread the USB-C lead out of the **rear slot** and fit the printed **`cover`**
+   over the base: 6 self-tappers up into the ledge inside the walls. The cover has
+   a microSD slot under the DFPlayer and a finger notch at the front - check you
+   can get a card in and out **before** you glue anything.
+
+**Printing the cover.** It is no longer a flat plate: its outer surface is the
+panda's own domed base, so it is ~7 mm thick at the rim and thinner in the middle.
+Print it **flat face down** (the machined-looking side on the bed, dome upward) and
+it needs no supports. Fitted, its lowest point clears the table by ~0.8 mm, so the
+panda still stands on its own feet.
+
+There is a deliberate **notch at the bottom rear**, roughly 28 x 6 mm, where the
+joystick's insertion channel breaks through the skin. Nothing covers it; it faces
+the table.
 
 ---
 
@@ -341,20 +415,41 @@ enclosure and not on the connector.
 
 ---
 
-## 11. Still to model in OpenSCAD
+## 11. Modelling status
 
-The current concept files are massing models - shapes only. Before anything is
-printable, the chosen concept needs:
+The enclosure is no longer a massing model - `cage.scad` and `panda.scad` export
+printable geometry, and `enclosure/verify_cage.py` asserts the mounts are real.
 
-- [ ] The sled: base, roof, front panel, rails, magnet pockets, insert bosses
-- [ ] The body cavity that receives it, with matching rails and washer recesses
-- [ ] Joystick panel hole, **flared** to `joy_throw_a` so the stick can tilt
-- [ ] OLED window and mounting bosses (`oled_hole_dx`/`dy` exist already)
-- [ ] Speaker opening in the cage top (done) + the ear grilles (done: see
-      `ear_vent()` in `panda.scad`); `helpers.scad`'s `speaker_grille()` is unused
-- [ ] Screw bosses - `helpers.scad` has `screw_boss()`, also never called
-- [ ] USB slot and amp vents
+Done:
+
+- [x] **Host: the de-embossed sculpt at 200 mm**, with the import transform derived
+      from the mesh instead of hand-fitted (`refit.py` re-derives everything)
+- [x] Cage shell 75 x 80 x 88, base flange, magnet pockets; `shell_prof` **solved**
+      against the sculpt including its per-height front setback (`fit_shell.py`
+      computes it - do not hand-tune it)
+- [x] OLED window + 4 mounting bosses, all on flat wall, screen 15.7 mm deep
+- [x] Joystick on the rump: four standoffs on the back wall's **outer** face, stalk
+      cap, stepped insertion channel through the body
+- [x] ESP32 / RTC / DFPlayer mounts + retention bars; a **straight** USB-C plug now
+      fits below the ESP32
+- [x] Speaker throat, head resonator, neck chimney and ear grilles
+- [x] Base hatch and rebate, **base cover** (clipped to the sculpt's domed base) and
+      its ledge
+- [x] USB-C exit - in the cage **and** in the body
+- [x] `breach` fit-check renders empty; `verify_cage.py` and `verify_window.py` green
+
+Open:
+
+- [ ] The measurements in [`MEASUREMENTS.md`](MEASUREMENTS.md) section 9. The OLED
+      header's position is the one that matters: it currently costs 5 mm of screen
+      depth purely because nobody knows which edge it is on.
+- [ ] **The screen sits ~16 mm behind the belly surface.** The belly skin over the
+      window is at panda Y53.8 and the glass lands at Y37.2. The cage cannot simply
+      move forward - past `cage_yfront` 46 the flat wall the OLED needs collapses
+      (run `fit_shell.py --yfront 48` to see it). Options are a forward pedestal
+      through the front wall, or relieving the header so the standoff drops to 2 mm.
 - [ ] Print-splitting and orientation
+- [ ] Amp vents
 
 Dimensions for all of the above are now in `dimensions.scad`. Before the final
 export, work through [`MEASUREMENTS.md`](MEASUREMENTS.md) with calipers and

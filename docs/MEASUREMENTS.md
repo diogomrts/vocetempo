@@ -207,9 +207,11 @@ speaker with 4 mounting ears** and flying leads.
 | Thumb cap diameter | `joy_cap_d` | 20 | **26.0** | |
 | Cap top height above PCB | `joy_cap_z` | 32 | **29.43** | tallest thing in the whole build |
 | Tilt half-angle | `joy_throw_a` | 25 | **23** | ~12.5mm cap sweep -> atan(12.5/29.43) |
-| Mounting hole spacing X | `joy_hole_dx` | 20 | **19.85** | |
-| Mounting hole spacing Y | `joy_hole_dy` | 28 | **19.80** | near-square, offset to pins |
+| Mounting hole spacing (across 26.70 width) | `joy_hole_dx` | 20 | **19.85** | |
+| Mounting hole spacing (along 32.30 length) | `joy_hole_dy` | 28 | **26.0** | CORRECTED 2026-08-24; the earlier 19.80 was the gimbal body width misread as a pitch |
 | Mounting hole diameter | `joy_hole_d` | 3.0 | **3.20** | M3 |
+| Header extension past the PCB (long axis) | `joy_pin_ext` | - | **5.2** | 32.30 -> ~37.5 overall |
+| Header height above the component face | `joy_pin_raise` | - | **~6** | pins rise ~5mm then BEND to run parallel to the board |
 
 > The cone must clear the **26mm flange at z=12** at 23deg tilt, not just the
 > narrow stick - compute the panel opening from both.
@@ -220,6 +222,12 @@ speaker with 4 mounting ears** and flying leads.
 snap-in cradles for the ESP32/DFPlayer), wired point-to-point. **Self-tapping
 screws into printed bosses** - NO heat-set inserts (so the boss hole is a pilot
 sized for the screw's core, and hole positions are forgiving).
+
+**Two screw sizes, not one.** M3 self-tappers fit every Ø3.2 hole: joystick (x4,
+**M3x4 MAX** - the pilot is blind at 3.5 mm, a longer screw bottoms out before
+the head seats), speaker ears (x4), retention bars (x4), base cover (x6). The
+OLED's Ø2.5 and the RTC's Ø2.3 holes do **not** pass an M3 - those two use **M2
+self-tappers** (x4 + x3) into a smaller pilot (`screw_hole_d_m2` = 1.7).
 
 | What | Variable | Nominal | Yours |
 | --- | --- | --- | --- |
@@ -234,17 +242,91 @@ sized for the screw's core, and hole positions are forgiving).
 > RTC hole positions were read from the photo (~+-1.5mm); fine for self-tapping
 > bosses but confirm with calipers if the fit is tight.
 
-## 8. Cage layout - DECIDED
+## 8. Cage layout - DECIDED (revised 2026-08-21, 200 mm host)
 
-No stack-height table needed (no perfboard). Fixed requirements:
+Cage is **75 W x 80 H x 88 D mm**, sitting at panda Z7, front face at panda Y45.
+One job per face:
 
-- **Front face (slides in / faces room):** OLED on top, joystick directly below.
-- **Top face:** speaker, grille up into the head.
-- **Back wall:** ESP32, RTC, DFPlayer mount flat, facing forward (shallow cage).
+| Face | Occupant |
+| --- | --- |
+| Front (belly) | OLED, **alone** |
+| Back (rump) | **joystick, on the OUTER face**; DFPlayer (lower right) and the USB-C exit (lower left) inside |
+| Left side | ESP32, portrait, USB-C edge down |
+| Right side | RTC, on its 3 real holes |
+| Top | speaker, grille up into the head |
+| Base | open for assembly, then closed by the printed **base cover** |
 
-Envelope estimate: **~75 W x 89 H x 38 D mm** (width set by OLED 68.63; height by
-OLED + joystick stacked; depth by OLED header + wiring + back-wall board pins,
-and floored by the speaker's 31mm width needing to sit on the top face).
+Key derived positions (all from `enclosure/refit.py`, verified against the mesh):
+
+| | value |
+| --- | --- |
+| host | `panda_original_without_embosses.stl`, 200 mm (`panda_scale` 212.9096, `panda_y_off` 9.036) |
+| OLED lit-window centre | panda Z47.8 -> PCB spans cage Z14.4..61.0, bosses at Z16.2 / Z59.2 |
+| screen recess | **15.7 mm** (10.7 if the left-edge header is desoldered) |
+| joystick centre | panda Z50; assembly 14.68 mm proud of the back face; cap stalk 11.0 mm |
+| rump depth at the joystick | 25.7 mm (26.1 at its deepest, panda Z36) |
+| ESP32 | cage Z23.4..76.6; USB-C mouth at cage Z21.9, straight plug fits |
+| magnets | cage (+-38, -49) and (+-44, -16) -> panda (+-38, 50) and (+-44, 17) |
+| front wall | full Y45 through cage Z4..42, setback 0.86 -> 16.57 above cage Z62 |
+| back wall | **full width at every height** (`cb` is 0 throughout) |
+
+> The joystick was under the screen on the belly. **It does not fit there** - the
+> OLED alone is 46.6 mm tall and the KY-023 adds 26.7 plus clearance. It moved to
+> the rump, and with the re-fit it also turned round: it now bolts to standoffs on
+> the OUTSIDE of the back wall through its own four holes, instead of dropping into
+> a pocket behind a printed retention frame. See the placement block in
+> `enclosure/dimensions.scad`.
+
+---
+
+## 9. STILL NEEDED - these block the next revision
+
+Everything above is measured. These are not, and each one is currently a
+*derived guess* that some real geometry depends on.
+
+### OLED
+
+| # | What | Why it matters | Current assumption |
+| --- | --- | --- | --- |
+| 1 | PCB **bottom** edge -> **glass** bottom edge | sets how much of the board is dead space; it is the number the whole belly-vs-rump budget turned on | **6.45** (derived by assuming the glass is centred on the lit area) |
+| 2 | PCB **top** edge -> glass top edge | same, other end | 0.25 (derived) |
+| 3 | ~~Which edge is the pin header on?~~ | **ANSWERED**: there are **TWO** headers on the back - one along the **top edge, centred**, and one down the **left edge** (viewed from the front, so cage **-X**). Either can be used | both protrude **6.32** (= `oled_depth_hdr` - `oled_depth_bare`) |
+| 4 | How long is each header, and is the unused one removable? | decides whether the standoff can drop from 7mm to ~2 | assumed both populated and permanent |
+| 5 | Ribbon/flex notch at the glass bottom-middle: width, and height above the PCB bottom edge | it must not be clamped or pressed | "~1mm slope/notch", position unknown |
+
+> **Why the standoff is still 7mm.** 6.32mm of header behind the PCB does not fit a
+> 4mm standoff in a 2mm wall - it would drive straight through the front wall and
+> out of the screen window. Now that both header positions are known, a relief could
+> be cut instead and the standoff dropped to ~2mm, buying back 5mm of screen depth.
+> But only the **top-middle** one is cheap to relieve: it sits in the 6mm band
+> between the window's top edge (cage Z54.3) and the PCB's top edge (Z60.2), clear
+> of the mounting bosses. The **left-edge** header runs down cage X-33, right
+> through the boss column at \|X\|32.15 - relieving that undercuts the bosses that
+> just got fixed. So: use the top-middle header, and say whether the left one can be
+> desoldered.
+
+### Joystick (KY-023)
+
+| # | What | Why it matters | Current assumption |
+| --- | --- | --- | --- |
+| 6 | Stick **pivot centre** offset from the PCB centre, both axes | sets where the rump bore goes. The 4 holes are offset toward the header, so the gimbal is probably not centred | assumed centred on the **hole pattern** |
+| 7 | ~~Which edge is the 5-pin header on, and how far does it stand proud?~~ | **ANSWERED 2026-08-24**: on a SHORT edge, extending the 32.30 length to ~37.5 overall, raised ~5 mm and bent parallel to the board. The insertion channel now has a dedicated pin step (`joy_pin_chan_w`, 45.7 wide, to Y-53) that clears it on either side | measured |
+| 8 | Which axis carries the gimbal's **23.40** nub (vs 19.80)? | the insertion channel's outer step is 27.4 across X; the wide axis must go across X | assumed nub on the X axis |
+| 9 | PCB corner -> nearest hole centre | how much can be trimmed if it ever needs to be | - |
+
+> Items 7 and 8 got much cheaper with the re-fit. There is no pocket and no bore any
+> more, so a proud header no longer has to be desoldered - it just has to clear the
+> rump channel.
+
+### The cage you already printed
+
+| # | What | Why it matters |
+| --- | --- | --- |
+| 10 | Measured outer size vs nominal **75.0 x 80.0 x 88.0** | if the printer is running small or large, that error stacks on top of every fit above, and it is worth knowing before another long print |
+
+> That printed cage is the **160 mm** design (75 x 78 x 60). It is superseded - the
+> host is now 200 mm and the box is 28 mm deeper. Its dimensional error is still
+> worth measuring, because the printer's scaling carries over.
 
 ---
 

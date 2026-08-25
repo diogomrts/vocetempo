@@ -208,11 +208,24 @@ joy_panel_open  = 20.0;   // resulting panel opening dia (slim cap + swing + clr
 joy_shaft_w     = 3.0;    // shaft, across the flats  [measured]
 joy_shaft_d     = 4.0;    // shaft, across the round  [measured]
 joy_shaft_len   = 5.95;   // shaft length above the gimbal (socket depth) [measured]
-// 4 mounting holes forming a near-square, offset toward the pin-header edge (so
-// they look uneven per-corner but are a clean rectangle). Confirmed by caliper.
-joy_hole_dx     = 19.85;  // horizontal centre-to-centre [measured]
-joy_hole_dy     = 19.80;  // vertical   centre-to-centre [measured]
+// 4 mounting holes: a RECTANGLE, not the "near-square" previously recorded.
+// CORRECTED 2026-08-24: 19.85 across the PCB's 26.70 width and 26.0 along its
+// 32.30 length. The old joy_hole_dy of 19.80 was almost certainly the gimbal
+// body's 19.80 width read as a hole pitch - the same class of mistake that made
+// the first printed cage miss the joystick holes. Margins now reconcile with the
+// board: (26.70 - 19.85)/2 = 3.4 and (32.30 - 26.0)/2 = 3.15 to each edge.
+joy_hole_dx     = 19.85;  // c-to-c across the PCB width, 26.70 axis [measured]
+joy_hole_dy     = 26.0;   // c-to-c along the PCB length, 32.30 axis [measured]
 joy_hole_d      = 3.20;   // M3 clearance [measured]
+// 5-pin header: leaves at a SHORT edge, extending the 32.30 length to ~37.5mm
+// overall. The pins rise ~5mm off the component face and are BENT to run
+// parallel to the board, so they are not aligned with the gimbal body. Mounted
+// sideways on the cage the bent row sticks out past one side of the PCB, into
+// the rump - panda_joystick_cut() carves a dedicated clearance step for it
+// (symmetric, so the module can be fitted pins-left or pins-right).
+joy_pin_ext     = 5.2;    // past the PCB edge along the long axis (37.5 total) [measured]
+joy_pin_raise   = 6.0;    // bent row ~5mm above the PCB face + pin thickness [measured]
+joy_pin_row     = 12.7;   // 5 pins x 2.54, centred on the edge
 
 // Kept for reference in case push buttons are ever fitted alongside the stick.
 btn_cap_d       = 8;      // button cap / plunger diameter
@@ -224,7 +237,7 @@ btn_spacing     = 16;     // centre-to-centre if placed in a row
 // bottom-side pins (see esp_pin_drop etc). Attachment uses each module's own
 // measured hole pattern:
 //   OLED     Ø2.5  @ 64.3 x 43.0   (4 corners)
-//   Joystick Ø3.2  @ 19.85 x 19.8  (4, near-square, offset to pins)
+//   Joystick Ø3.2  @ 19.85 x 26.0  (4 corners, rectangle, offset to pins)
 //   RTC      Ø2.3  x3 holes        (2 by pins, 1 top corner)
 //   Speaker  Ø3.2  @ 63.6 x 21.2   (4 ears, on sled TOP, grille up)
 //   DFPlayer NO usable holes (one half-slot on top edge, opposite the SD slot)
@@ -265,168 +278,350 @@ magnet_count    = 4;      // one near each corner of the base rim
 // magnet flush in the flange looking up, body magnet flush in the rebate ceiling
 // looking down, so the two faces touch with no plastic between them.
 //
-// The magnets HAVE to sit outboard of the base hatch: the hatch (|X|<=40.5,
-// Y -23..43 in panda coords) removes the body exactly where the old positions were,
-// so they had nothing to attract. Raycast of the base at the rebate ceiling (Z 6..9)
-// shows the solid ring outside the hatch is (a) a wide FRONT band at Y>=44 - the
-// cavity's front face stops at Y 40.35 and the feet run out to Y 62 - and (b) SIDE
-// bands at |X|>=42. The rump is useless: its skin is at Y -22..-26, so the hatch
-// already reaches it.
-// Positions below are in the CAGE frame; panda = (-cx, cage_yc - cy). Both pairs are
-// verified inside the skin from Z2 (the flange's underside) upward, with >=1.5mm of
-// wall around every pocket:
-//   front pair  cage (+-34, -40)  ->  panda (+-34, 50)  over the feet
-//   side  pair  cage (+-43, -16)  ->  panda (+-43, 26)  over the side collar
-// (a side pair at panda |X|44 was tried first and fails: still outside the skin at
-// Z2, because the base tapers in toward the floor.)
 // NOTE: the cage's outer dimensions are defined HERE, above the base-flange
 // block, because flange_xw / front_yf / back_yb / mag_ear_root are computed FROM
 // them. They used to live ~30 lines further down, which made all four evaluate to
 // undef (OpenSCAD does not forward-reference) and silently fed garbage into
 // base_flange_2d() - so the cage's base flange, the panda's base rebate and the
 // magnet ears were all being built from undef. Keep this order.
-// The cage: front face (OLED over joystick) faces the belly; slides in from the
-// BASE; speaker on top fires up the neck into the head cavity (~Z128+).
+// The cage: front face (OLED) faces the belly; slides in from the BASE; joystick
+// bolted to the OUTSIDE of the back wall; speaker on top fires up the neck into the
+// head cavity.
+//
+// !!! RE-FIT 2026-08-21: 200mm HOST !!!  Every number in this block was re-solved
+// against panda/panda_original_without_embosses.stl at panda_h 200 (enclosure/
+// REFIT.md; re-derive with refit.py / fit_shell.py). At 160mm the layout was
+// deadlocked - the belly pinched in above the folded arms at panda Z72, capping
+// cage_h at 64, while a portrait ESP32 needs 61.2mm of interior and 77.2mm with a
+// straight USB-C plug. Growing the host is what breaks the deadlock: the boards do
+// not scale, so every clearance is bought back at once.
 cage_w          = 75;     // outer width  (X) - OLED 68.63 + walls/clearance
-cage_h          = 78;     // outer height (Z) - OLED & joystick centres 28mm apart
-                          //   (devices overlap in Z at different depths to fit
-                          //   the panda belly); OLED top ~62 + speaker margin
+// HEIGHT. 80 gives 78mm of interior: cover ledge 6 + 2 margin + a straight USB-C
+// plug 16 + the 53.2mm ESP32 standing portrait = 77.2, with 0.8 to spare. So the
+// panel-mount USB-C port is optional again rather than mandatory. The top can go
+// this high because the front no longer has to be one plane - see shell_prof's
+// fourth column.
+cage_h          = 80;     // outer height (Z) -> top at panda Z87
 // DEPTH (Y): the panda torso is ROUND, so a deep rectangular cage pokes its
-// front/back CORNERS out through the belly and shoulders (the old cage_d=80 with
-// square-ish corners breached the skin at nearly every Z - confirmed by the
-// breach fit-check). The mesh was re-analysed this session (raw skin -> per-Z
-// angular radius map): the usable window is front belly ~Y44 at the corners, back
-// ~Y-16, ~75 wide, necking in toward the top where the arms fold. Depth only needs
-// ~45mm internally (front stack ~19 + back stack ~21 + wiring), so 60mm outer is
-// roomy AND fits the round torso. The corner relief that makes it fit is captured
-// in shell_prof (below) - a per-height chamfer that keeps the walls FLAT where the
-// boards mount and only trims the feature-free corners.
-cage_d          = 60;     // outer depth  (Y) - was 80 (corners breached the belly)
-cage_z0         = 2;      // cage base sits at this Z (just above the feet lip)
+// front/back CORNERS out through the belly and shoulders. 88 is a solved trade, not
+// a guess: deeper shortens the joystick's cap stalk (it leaves 25.9mm of rump at
+// dev_joy_pz) but eats the base rim the magnets need. At cage_d 100 the rump is
+// 13.9mm but the hatch reaches within ~5mm of the skin front AND back, so there is
+// nowhere left to put a magnet. The corner relief that makes 88 fit is in
+// shell_prof (below) - and on this host cb is 0 at every height, so the back wall
+// is full width for the first time.
+cage_d          = 88;     // outer depth  (Y)
+// The base is domed: at panda Z2 the belly skin at X0 is only Y40.3 and by |X|34 it
+// has tucked back to Y28.7, while at Z7 it is Y50.4 / Y63.3. So the cage cannot
+// start any lower - at Z2 its front wall would be 14mm outside the sculpt.
+cage_z0         = 7;      // cage base sits at this panda Z
 
 rim_h           = magnet_t + 1.2;   // flange thickness: magnet depth + backing (4.2)
-front_rim       = 4;      // flange's outward rim at the FRONT (over the feet)
-side_rim        = 3;      // ... and on the SIDES
-back_pull       = 8;      // pull the BACK edge IN (the rump recedes at the base)
-back_xw         = 24;     // back edge half-width (the rump narrows)
+side_rim        = 3;      // flange's outward rim on the SIDES
+front_pull      = 3;      // pull the FRONT edge IN (see below)
+back_rim        = 4;      // flange's outward rim at the BACK (into the rump)
+back_xw         = 32;     // back edge half-width (the rump narrows toward the sides)
 flange_xw       = cage_w/2 + side_rim;       // SIDE reach (40.5)
-front_yf        = -(cage_d/2 + front_rim);   // FRONT reach, cage -Y (-34)
-back_yb         = cage_d/2 - back_pull;      // BACK edge, pulled IN (22)
+// THE FRONT RIM IS NOW A PULL, NOT A REACH. Over the flange's own Z band (panda
+// Z7..11.2) the belly skin bottoms out at Y44.38 around |X|27, so a rim carried
+// forward to panda Y49 - what front_rim 4 used to give - pokes out of the belly
+// across |X|15..27 (measured). Pulling the edge 3mm inside the cage wall puts it at
+// panda Y42 with 2.4mm to spare. The front loses its seat; the sides and the back
+// (where the rump gives 10mm+) still carry the flange onto the rebate ceiling.
+front_yf        = -(cage_d/2 - front_pull);  // FRONT edge, cage -Y (-41 = panda Y42)
+back_yb         = cage_d/2 + back_rim;       // BACK reach (48 = panda Y-47)
 mag_ear_r       = magnet_d/2 + 2.0;          // 4.5 - ear radius round a pocket
-mag_pos         = [[ 34, -40], [-34, -40],   // front pair (over the panda's feet)
-                   [ 43, -16], [-43, -16]];  // side pair  (over the side collar)
+// The magnets HAVE to sit outboard of the base hatch, which is now 77 x 90 and
+// spans panda Y -44..46: everything inside that is cut away for the cage. Positions
+// are in the CAGE frame; panda = (-cx, cage_yc - cy). Both pairs are raycast-
+// verified solid over panda Z11.2..15.7 (the body pocket) with >=4mm of body all
+// round, AND their flange ears verified inside the skin over panda Z7.2..11.2:
+//   front pair  cage (+-38, -49)  ->  panda (+-38,  50)  over the feet
+//   side  pair  cage (+-44, -16)  ->  panda (+-44,  17)  over the side collar
+// (the old front pair at panda Y50, |X|34 fails on this host: at panda Z7 the foot's
+// inner edge is at |X|~28 and the skin there is only Y52.4, so the pocket's outboard
+// halo breaks out.)
+mag_pos         = [[ 38, -49], [-38, -49],   // front pair (over the panda's feet)
+                   [ 44, -16], [-44, -16]];  // side pair  (over the side collar)
 // where each ear meets the flange proper (clamped to the cage's own footprint)
-mag_ear_root    = [[ 34, -cage_d/2], [-34, -cage_d/2],
+mag_ear_root    = [[ 38, front_yf], [-38, front_yf],
                    [ cage_w/2, -16], [-cage_w/2, -16]];
 // Steel-washer fallback kept in case the pair approach is dropped later.
 washer_d        = 12;     // steel washer outer diameter [unused]
 washer_t        = 1.2;    // [unused]
 
+// ---- BASE COVER (was missing entirely) ---------------------------------------
+// The cage's base is the hatch it enters through, so it is open by design - but
+// nothing ever closed it afterwards. On the first print that leaves the electronics
+// looking straight at the table, with no dust seal, nothing stopping a board from
+// dropping out, and the panda's whole underside an open box.
+//
+// The cover is a separate plate that screws to the UNDERSIDE of the base flange,
+// occupying panda Z0..cage_z0 - i.e. exactly the gap between the flange and the
+// ground - so it finishes flush with the panda's base and adds no height. It is the
+// last thing fitted and the first thing removed for service.
+//
+// AT cage_z0 7 IT IS NO LONGER A FLAT PLATE. The sculpt's base is domed: its lowest
+// points are the outer edges of the feet at |X|~40 (panda Z0.5) and at X0 the body
+// does not start until Z~1.5, while the silhouette at Z2 has already tucked back to
+// Y40.3 at X0 and Y28.7 at |X|34. A 7mm prism of the cage's footprint would stand up
+// to 14mm proud of the belly at the bottom rear of the feet. So base_cover() is
+// INTERSECTED with the sculpt itself (cage.scad), which makes its outer surface the
+// panda's own base - flush by construction. Print it flat-face-down, dome up.
+cover_t         = cage_z0;      // fills the flange-to-ground gap exactly
+cover_inset     = 0.3;          // shrink from the outline so it is never proud
+cover_finger_w  = 18;           // notch to get a fingernail under it
+// HOW IT IS HELD. Not on bosses: the flange's middle is cut away (it must not block
+// the hatch), so a post standing anywhere in the base footprint would be floating in
+// mid-air, fused to nothing. Instead a LEDGE is run round the inside of the shell
+// walls at the very bottom - fused to the wall along its whole length, printable
+// with no overhang, and stiffening the open base as a bonus. The cover screws up
+// into it from below.
+cover_ledge_w   = 5.0;          // how far the ledge reaches in from the wall
+cover_ledge_h   = 6.0;          // its height above the cage's Z0
+// Screw positions must all land ON that ledge at EVERY height it spans (cage Z0..6),
+// not just at the top. On this host cb is 0 everywhere, so the back wall is finally
+// full width and the back pair can move out to |X|25 (it used to be pinned inboard
+// of |X|22 by a 15.5mm base chamfer). The FRONT pair is the fussy one: shell_prof's
+// fyb pulls the front face back 2.22mm at cage Z0 and 0.22 at Z2, so the front
+// ledge's outer edge walks from y-39.78 at Z0 to y-42 at Z4. -38.5 is the only band
+// that is on the ledge over the whole 0..6 run.
+cover_screws    = [[ 33,   0  ], [-33,   0  ],  // side ledges
+                   [ 25, -38.5], [-25, -38.5],  // front ledge
+                   [ 25,  40  ], [-25,  40  ]]; // back ledge (full width now)
+// microSD access: the DFPlayer's card edge faces the base, so the cover needs a
+// slot under it. Sized to the card plus finger room, not just the card.
+cover_sd_w      = 16;
+cover_sd_l      = 20;
+
+// ---- USB-C charge exit (shared by the cage AND the panda) ---------------------
+// Lives here, not in cage.scad, because BOTH parts have to cut it and they were
+// out of sync: the cage had the slot, the panda had NO hole at all, so the cable
+// vented into ~15.5mm of solid rump. The ESP32's USB-C faces DOWN toward the open
+// base; the cable turns in the board-to-wall gap and exits low on the BACK wall,
+// below the joystick. Sized to a PANEL-MOUNT USB-C flange so a fixed port can be
+// retrofitted later without a redesign; for now a loose cable threads it.
+// THE SLOT HAS TO LINE UP WITH THE RECEPTACLE. The ESP32's USB-C mouth sits at
+// cage Z = esp_cz - esp_w/2 - esp_usb_out; the slot must be centred on it or a cable
+// plugged in facing DOWN has to double back on itself to reach the exit.
+// On the 200mm host the cage is 80 tall, so for the first time the board can sit
+// high enough to leave a STRAIGHT plug's 16mm of moulding hanging below it: with
+// esp_cz 50 the mouth is at cage Z21.9 and the plug body ends at ~Z6, right on top
+// of the cover ledge. So the slot goes at Z22 and the panel-mount port it is sized
+// for is now an option, not a requirement. A right-angle cable still works.
+usb_slot_z      = 22;     // cage Z (panda Z29) = the ESP32's USB-C mouth
+usb_slot_x      = -19.3;  // cage X, on the back wall's left half (clear of the
+                          // DFPlayer at +18 and the joystick's |X|<=16.15)
+usb_flange_w    = 20;     // panel-mount flange footprint
+usb_flange_h    = 12;
+usb_screw_dx    = 24;     // future panel-mount screw spacing
+
 // ---- Panda host model & cage placement ---------------------------------------
-// Source mesh: Downloads/a87ed6a5-...stl, in normalized units (0.70 x 0.70 x
-// 0.96). We rescale to 16cm tall (factor ~166.7) and hollow it, then boolean the
-// screen/joystick/speaker openings. Sliced cross-sections (scaled to 16cm):
-//   Z~15  (base)  ~115 wide    <- widest, feet
-//   Z~48  (belly) ~106 wide    <- cage front face lives here
-//   Z~80  (waist) ~92  wide    <- TIGHT POINT: 75 cage + ~8.5mm body each side
-//   Z~112 (chest) ~103 wide
-//   Z~128+(head)  depth pinches -> HEAD CAVITY (speaker resonator) starts here
-panda_scale     = 166.7;  // normalized-units -> mm, gives ~160mm tall
-panda_h         = 160;    // final height (Z) [target]
-panda_w         = 115;    // approx overall width at the base
-// The cage front (belly) face lands at this PANDA Y. Belly surface over the window
-// is Y~64-67 at centre but only ~48-50 at the corners; the rounded front face sits
-// just inside it, leaving a thin belly wall the window pierces (a shallow recessed
-// screen). Cage back then lands at Y-16, clear of the folded arms.
+// HOST: panda/panda_original_without_embosses.stl - the sculpt with the embossed
+// screen plaque and belly knob shaved off - scaled to 200mm tall.
+//
+// The transform is DERIVED from the mesh, not hand-fitted (probe_skin.scad_transform
+// / refit.py section 1). The old recipe hard-coded scale 166.7 and translate +26 in
+// Y, both fitted by eye to panda_original.stl; they do not transfer, because the
+// de-embossed mesh is 2% shorter and 7% shallower in Y (raw Z span 0.93937 vs
+// 0.95893) and its X is symmetric where the old mesh was 0.44mm off-centre.
+// Deriving it means the next sculpt swap only changes these two numbers.
+//
+// Resulting frame: X centred, feet on Z0, belly at +Y, Y bounding box centred on 0.
+//   bbox  X -72.35..72.35   Y -69.08..69.08   Z 0..200
+panda_scale     = 212.9096; // = 200 / 0.93937 raw Z span
+panda_h         = 200;      // final height (Z)
+panda_x_off     = 0;        // this mesh is symmetric (derived value 0.006)
+panda_y_off     = 9.036;    // panda_raw() translate; was a hand-fitted 26
+panda_w         = 145;      // approx overall width at the base
+// WHY 200 AND NOT 160. The parts do not scale - a 2.42" OLED is 68.63 x 46.60 at
+// any host size - so the sculpt's size IS the clearance budget. At 160 the belly
+// pinched in above the folded arms at panda Z72, which capped cage_h at 64 against
+// the 61.2mm a portrait ESP32 needs, put its USB-C mouth level with the cover ledge
+// (no straight plug possible) and left the joystick's cap stalk longer than the
+// rump. Every one of those is solved at 200; scale_sweep.py has the table.
+//
+// The cage front (belly) face lands at this PANDA Y. It is a real plate at Y45
+// through the whole board zone, and only steps BACK above the arms - see shell_prof's
+// fyb column, which is what decoupled cage height from screen depth.
 // PLACEMENT: cage.scad's own frame has the OLED front at -Y, so in the panda the
 // cage is ROTATED 180 about Z, then translated:
 //     translate([0, cage_yc, cage_z0]) rotate([0,0,180]) cage();
 // After the 180 spin, the cage front (-D/2) maps to +D/2, i.e. panda Y cage_yfront.
-cage_yfront     = 40;     // panda Y of the cage FRONT (belly) outer face
-                          // (was 42; pulled back 2mm to thicken the thin belly wall
-                          //  above the screen - it had pin-holed at the arm-fold
-                          //  crease. Screen recess deepens ~2mm, still shallow.)
-cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 12)
+cage_yfront     = 45;     // panda Y of the cage FRONT (belly) outer face
+cage_yc         = cage_yfront - cage_d/2;   // panda Y of the cage centre (= 1)
 // The cross-section shape (which corners are chamfered, and by how much, per
 // height) is defined by shell_prof further down - a single source of truth shared
 // by cage.scad (the box) and panda.scad (the cavity).
 
+// ---- Cavity clearances (panda.scad builds the void, cage.scad clips to it) -----
+// These live HERE rather than in panda.scad because cage.scad needs them too and
+// `use <panda.scad>` imports modules, not variables - so cage_clip_z was silently
+// undef the moment it tried to derive itself from the body's clip line.
+cav_clear     = 1.0;      // slide-in gap on the SIDES/BACK (easy insertion)
+cav_front_gap = 0.35;     // MUCH tighter on the BELLY-FRONT face, so the wall over
+                          // the screen stays thick. A uniform 1.0 inflates the
+                          // cavity into the belly skin at the arm-fold -> pin-holes.
+cav_fyb       = cav_clear - cav_front_gap;   // front-face bias (0.65)
+cav_min       = 1.4;      // min belly wall the skin clip guarantees at the arm-fold
+cav_clip_z    = 71;       // panda Z above which the cavity (and the cage's upper
+                          // shell) are clipped to an inward-eroded skin. 71 = cage
+                          // Z64, exactly where shell_prof's fyb column starts
+                          // pulling the front back for the arms. It used to be far
+                          // lower, but the front plate now runs at panda Y45 with as
+                          // little as 1.9mm of belly over it at Z69, and the erosion
+                          // is 1.35mm - clipping any lower would start shaving the
+                          // wall the OLED's own bosses stand on.
+skin_cy       = -5;       // body Y axis the skin is scaled toward (measured: the
+                          // torso's mid-Y runs -6.2 at Z60 to -10.2 at Z87)
+skin_r        = 60;       // belly radius from that axis at the pinch (measured
+                          // 57-60 over panda Z62..70)
+
 // ---- SINGLE SOURCE OF TRUTH for device placement (panda Z + cage Z) ----------
-// The panda sculpt was MESH-ANALYSED this session (orthographic front render with
-// 2mm Z markers + depth-deviation map): the embossed screen plaque centres at
-// panda Z~40 and the round belly knob at panda Z~20, only ~20mm apart. But the
-// OLED lit window is 28mm tall and the slim-cap joystick opening ~26mm (20mm panel
-// + tilt flare), so the two PANEL OPENINGS need ~32mm centre-to-centre to leave a
-// solid ~3mm wall BRIDGE between them - they CANNOT both sit dead-centre on the
-// sculpt. DECISION (user): spread them symmetrically about the feature midpoint
-// (panda Z30) -> OLED window at panda Z46, joystick at panda Z14. Each opening
-// still lands on its sculpted feature (drifts ~2mm); the belly around them is plain
-// so the small offset reads fine. [Was 44/16 = 28mm, which left NO bridge: the
-// joystick cone top and OLED window bottom overlapped at the centreline and the
-// front wall was cut clean through. Verified with a front-wall slab section.]
-//
 // Mapping rule: cage-internal Z + cage_z0 = panda Z. Both panda.scad and cage.scad
 // derive their cuts from these, so they can never drift apart again.
-dev_oled_pz     = 46;     // OLED lit-window centre, PANDA Z [on the screen plaque]
-dev_joy_pz      = 20;     // joystick opening centre, PANDA Z [on the round knob]
-dev_sep         = dev_oled_pz - dev_joy_pz;   // = 26 (opening centre spacing)
+//
+// THE BELLY CARRIES ONLY THE SCREEN; THE JOYSTICK IS ON THE RUMP. They cannot
+// share the front wall - the OLED alone is 46.6 tall and the KY-023 adds another
+// 26.7 plus clearance, which never fitted in any front wall this sculpt offers.
+// The rump has no competition: 25.9mm of solid body between the cage's back face
+// and the skin at dev_joy_pz.
+dev_oled_pz     = 47.8;   // OLED lit-window centre, PANDA Z
+                          // -> oled_cz 37.7, PCB spans cage Z14.4..61.0,
+                          //    bosses at cage Z16.2 and 59.2, both on flat wall
+                          //    (fit_shell.py: cf is 0 through cage Z0..42 and only
+                          //    1.5-1.8 at Z44/46, so |X|32.15 is never in a chamfer)
+dev_joy_pz      = 50;     // joystick centre, PANDA Z, on the RUMP.
+                          // The rump is 25.7mm deep here and still 26.1 at its
+                          // deepest (Z40); 50 keeps the assembly clear of the USB-C
+                          // exit slot (cage Z16..28) and the DFPlayer below it.
 // Cage-frame centres (derived; used by cage.scad):
 //   window centre (lit area) = dev_oled_pz - cage_z0
-//   OLED PCB centre          = window centre - oled_active_dy  (lit sits +3.1 up)
-//   joystick centre          = dev_joy_pz - cage_z0
+//   OLED PCB centre         = window centre - oled_active_dy  (lit sits +3.1 up)
 oled_cz         = dev_oled_pz - cage_z0 - oled_active_dy;  // OLED PCB centre (cage Z)
 joy_cz          = dev_joy_pz  - cage_z0;                   // joystick centre (cage Z)
+
+// ---- Joystick: STANDOFFS ON THE OUTER FACE OF THE BACK WALL ------------------
+// !!! CHANGED with the 200mm re-fit. It used to drop into a pocket in a thickened
+// plinth on the INSIDE of the back wall, with the gimbal poking out through a bore
+// and a separate printed FRAME screwed over the PCB's edges - because the module's
+// own 4 holes (19.85 x 26.0) sit right on the gimbal bore's edge on the 19.85 axis
+// (the gimbal is 19.80 wide there), so a boss there loses over half its section.
+//
+// Turn the module round and the conflict disappears. Bolt the PCB to standoffs on
+// the OUTSIDE of the back wall with the gimbal pointing AWAY from it, and there is
+// no bore at all - nothing has to pass through the wall except five wires. That
+// deletes joystick_plinth(), joystick_pocket_cut(), joystick_bore_cut(),
+// joystick_frame_bosses() and the whole joy_frame printed part, and it uses the
+// module's own mounting holes as intended.
+//
+// SIDEWAYS still: the PCB is rotated 90deg, so 32.30 runs across X and 26.70 up Z,
+// and the hole pattern becomes 26.0 (X) x 19.85 (Z) - standoffs at X+-13.0,
+// Z joy_cz +- 9.925. Fit the gimbal with its WIDE (23.40, nub) axis across X; the
+// bent header row then points out past one side of the PCB (either side works,
+// the rump channel clears both).
+//
+// The price is depth. Measured out from the cage's back OUTER face at panda Y-43:
+//     2.00  standoff
+//     0.92  PCB
+//    11.76  gimbal body
+//   =14.68mm proud, so the rump needs a taller/wider INSERTION CHANNEL than before
+//   (it has to pass the 32.3mm PCB, not the 24mm gimbal). See panda.scad.
+joy_so_h        = 2.0;    // standoff height off the back wall's OUTER face
+joy_wire_w      = 16;     // wire slot through the back wall, below the PCB
+joy_wire_h      = 5;
+// THE CAP. Stock rubber cap is 26mm and would need a ~32mm hole in the rump; we
+// print a slim one (joy_slim_cap_d). Its socket is deeper than the 5.95mm shaft, so
+// it bottoms on the gimbal's shoulder. PCB inner face at panda Y-45, so the shoulder
+// is at -45 - 0.92 - 11.76 = -57.68, and the rump skin at dev_joy_pz is Y-68.71.
+joy_cap_stalk   = 11.0;   // gimbal shoulder -> rump skin (68.71 - 57.68 = 11.03)
+joy_cap_dome    = 3.5;    // dome standing proud of the rump (thumb finds it)
+joy_cap_barrel_d = 8.6;   // at the socket (socket 4.3 + 2 x cap_wall)
+joy_cap_tip_d    = 6.5;   // tapered down where it passes through the skin
+// The rump bore only has to clear the STALK plus its swing, NOT the 16mm dome - so
+// the dome overhangs the hole like a real thumbstick and hides its edge. The pivot
+// sits ~6mm out from the PCB (panda Y-51.9), so the lever to the skin is 16.8mm and
+// at joy_use_tilt the tip sweeps 16.8 x tan(11) = 3.26mm each way.
+//   6.5 tip + 2 x 3.26 + slack = 14.0, comfortably under the 16mm dome.
+joy_rump_bore_d = 14.0;
 
 // ---- Print / fit parameters -----------------------------------------------
 wall            = 2.4;    // shell wall thickness (good on a 0.4mm nozzle)
 fit_gap         = 0.4;    // clearance around parts and in cutouts
 screw_boss_d    = 6;      // outer diameter of a self-tap screw boss
-screw_hole_d    = 2.5;    // self-tap pilot hole (boss bites the screw; no insert)
+screw_hole_d    = 2.5;    // M3 self-tap pilot hole (boss bites the screw; no insert)
+// A Ø2.5 pilot is sized for M3 self-tappers, which suit every hole that PASSES an
+// M3: the joystick (Ø3.2), the speaker ears (Ø3.2), the retention bars and the
+// base cover (Ø3.2 clearance). It does NOT suit the OLED (holes Ø2.5) or the RTC
+// (Ø2.3): an M3 does not fit through those, and an M2 that does fit through has a
+// 2.0mm thread OD, so it cannot bite a 2.5 pilot at all - the screw just spins.
+// Those two modules take M2 self-tappers into this smaller pilot instead.
+screw_hole_d_m2 = 1.7;    // M2 self-tap pilot (OLED + RTC bosses only)
 // NOTE: using self-tapping screws into printed bosses - NO heat-set inserts.
+// Shopping list: M3 self-tappers (joystick x4 = M3x4 MAX, see joy_pilot_web;
+// speaker x4; cover x6; bars x4) and M2 self-tappers (OLED x4, RTC x3).
 corner_r        = 4;      // general rounding radius for a friendly look
 
 // ---- Shell cross-section profile (the "loaf" that fits the round panda) -------
 // The cage OUTER cross-section is a W x D rectangle whose FRONT and BACK corners
-// are chamfered by amounts that vary with height. This is the single source of
-// truth for the shell shape; BOTH cage.scad (the box) and panda.scad (the cavity
-// that must contain it) build from it, so they cannot drift.
+// are chamfered by amounts that vary with height, and whose FRONT FACE can be set
+// back per height. This is the single source of truth for the shell shape; BOTH
+// cage.scad (the box) and panda.scad (the cavity that must contain it) build from
+// it, so they cannot drift.
 //
-// WHY: the panda torso is round AND its folded arms pinch the upper-BACK (worst
-// around cage Z70-74, easing again by the top where the speaker sits). A plain
-// box pokes its corners through the skin; a simple taper moves the walls away
-// from the board-mounting bosses (they ended up floating outside - the bug this
-// fixes). So the profile keeps FLAT, FULL walls through the whole board zone
-// (Z12..~60, where OLED/joystick/ESP/RTC/DFPlayer mount) and only chamfers the
-// corners where there are NO features: the feet (low front) and the shoulders/
-// arms (high front & back). Each [z, front_chamfer, back_chamfer] row is in the
-// cage frame (front = -Y). Values were solved against a per-Z angular map of the
-// raw panda skin so every point clears the surface (breach fit-check: ~1mm skin
-// at the tightest point). Speaker ears (near the Y centre) stay inside the top.
-// cf = FRONT (belly) corner chamfer, cb = BACK corner chamfer.
-// The folded arms pinch the BELLY (front, +Y) at Z~64-76, so the big chamfer is on
-// the FRONT now; the back only needs a little (shoulders) plus a small chamfer at
-// the base for the splayed feet/rump. Both cf and cb are monotonic non-decreasing
-// toward the top so the corners never flare back OUT (that flare is what made the
-// pointy tabs). Solved against the correctly-oriented belly skin (breach fit-check).
+// Each row is [z, cf, cb, fyb] in the CAGE frame (front = -Y):
+//   cf   FRONT (belly) corner chamfer
+//   cb   BACK corner chamfer
+//   fyb  FRONT SETBACK - pulls the whole belly-side face back at that height
+//
+// WHY THE FOURTH COLUMN EXISTS. Without it the front is a single plane, so it has
+// to clear the WORST height anywhere on the cage - and the worst height is the arm
+// pinch at the very top. That couples cage height to screen depth directly: a cage
+// tall enough for the ESP32 (top at panda Z87) drags the front plane back to Y29.6
+// and buries the screen ~31mm deep, while a cage short enough to keep the front at
+// Y45 cannot fit the ESP32 at all. That is precisely the deadlock that stopped the
+// re-fit landing. With a setback the front plate stays FORWARD at the full Y45
+// through the OLED's whole span and steps back only above the arms.
+//
+// SOLVED, NOT GUESSED. The table is printed by fit_shell.solve_setback(), which
+// rasterises the raw sculpt and, per height, (1) pulls the flat span |x| <= 35.5
+// back by however much the OLED's 68.63mm PCB and its |X|32.15 bosses demand, then
+// (2) chamfers only the feature-free corners beyond it. Everything must stay
+// `margin` (1.6mm) inside the skin. Re-run it after changing cage_w, cage_d,
+// cage_yfront, cage_z0 or cage_h - all five feed the solve:
+//     python refit.py
+//
+// Key results on the 200mm host:
+//   * cb is 0 AT EVERY HEIGHT. The back wall is full width for the first time, so
+//     the joystick, the DFPlayer and the USB exit share an uncramped 71mm.
+//   * the front plate holds Y45 from cage Z4 to Z42, which is where the OLED lives.
+//   * cf only ever reaches 1.9 (the paw crests at cage Z44/46 and the shoulders at
+//     Z74+), so no mounting boss is ever left standing in a chamfer.
+//   * fyb ramps from 0.86 at cage Z64 to 16.57 at the top - that is the folded arms.
+//   * row 0's fyb 2.22 is the base: at panda Z7 the belly has only reached Y44.4
+//     around |X|27.
+// Rows between 4 and 42 and between 48 and 62 are all zeros; the loft is linear, so
+// collapsing them changes nothing.
 shell_prof = [
-  // z    cf    cb
-  [ 0,    0,   13],   // base: rump/feet recede at the back -> back chamfer
-  [ 4,    0,    9],
-  [ 8,    0,    3],
-  [12,    0,    0],   // ---- full flat box through the board zone ----
-  [60,    0,    0],
-  [62,    8,    1],   // OLED top standoffs ~here; small chamfer (clip trims edges)
-  [63,   15,    2],   // belly pinches sharply above the OLED -> FRONT chamfer HARD
-  [64,   20,    3],
-  [65,   22,    4],
-  [66,   24,    5],
-  [67,   24,    6],
-  [68,   25,    8],
-  [70,   25,   10],   // belly/arm pinch worst -> deepest FRONT chamfer, then HELD
-  [72,   25,   12],
-  [74,   25,   13],
-  [76,   25,   13],
-  [78,   25,   13],
+  // z      cf      cb     fyb
+  [  0.0,   0.00,   0.00,   2.22],   // base fillet
+  [  2.0,   0.00,   0.00,   0.22],   // solver says 0; held at 0.22 so the step out
+                                     // of the base fillet is exactly 45deg, not 48
+  [  4.0,   0.00,   0.00,   0.00],
+  [ 42.0,   0.00,   0.00,   0.00],   // ---- front plate at full Y45 ----
+  [ 44.0,   1.52,   0.00,   0.00],   // paw crests clip the corners
+  [ 46.0,   1.81,   0.00,   0.11],
+  [ 48.0,   0.00,   0.00,   0.00],
+  [ 62.0,   0.00,   0.00,   0.00],   // ---- arms start to pinch above here ----
+  [ 64.0,   0.00,   0.00,   0.86],
+  [ 66.0,   0.00,   0.00,   2.58],
+  [ 68.0,   0.00,   0.00,   4.49],
+  [ 70.0,   0.00,   0.00,   7.15],
+  [ 72.0,   0.00,   0.00,  10.04],
+  [ 74.0,   1.91,   0.00,  12.40],
+  [ 76.0,   1.91,   0.00,  13.76],
+  [ 78.0,   1.92,   0.00,  15.16],
+  [ 80.0,   1.92,   0.00,  16.57],
 ];
 
 // ---- Rendering smoothness (higher = smoother, slower) ---------------------

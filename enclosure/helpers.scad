@@ -63,10 +63,14 @@ module speaker_grille(d = spk_grille_l, depth = 10, hole_d = 3, gap = 5) {
 }
 
 // A screw boss (solid post with a pilot hole) standing up from Z=0 to height h.
-module screw_boss(h) {
+// The pilot opens at the TOP (+Z) and keeps a 1mm solid base - so only use this
+// where the screw arrives from the boss's +Z side (after any rotation). `pd`
+// selects the pilot: screw_hole_d for M3 self-tappers (default), screw_hole_d_m2
+// for the boards whose own holes only pass an M2 (OLED, RTC).
+module screw_boss(h, pd = screw_hole_d) {
     difference() {
         cylinder(h = h, d = screw_boss_d);
-        translate([0, 0, 1]) cylinder(h = h, d = screw_hole_d);
+        translate([0, 0, 1]) cylinder(h = h, d = pd);
     }
 }
 
@@ -98,12 +102,13 @@ module shell_section(cf, cb, shrink = 0, fyb = 0) {
 // ---------------------------------------------------------------------------
 // BASE FLANGE FOOTPRINT (shared by the cage's foot and the panda's rebate).
 //
-// In the CAGE frame. A core rim that follows the panda's base - full outward rim at
-// the FRONT (over the feet) and SIDES, pulled IN at the BACK where the rump recedes
-// - plus four EARS that reach out to the magnet positions. The ears have to be local
-// tabs rather than a wider rim: the body's front skin at Z2 is only Y 42..46 around
-// |X|<26, so a rim carried out to the front magnets across the full width would
-// simply poke out of the belly.
+// In the CAGE frame. A core rim that follows the panda's base - pulled IN at the
+// FRONT (front_pull: over the flange's own Z band the belly has only reached panda
+// Y44.4 around |X|27, so there is no room for an outward front rim at all), a full
+// outward rim on the SIDES and at the BACK (the rump gives 10mm+ there on this
+// host), narrowing at the back corners via back_xw - plus four EARS that reach out
+// to the magnet positions. The ears have to be local tabs rather than a wider rim,
+// or the flange would poke out of the belly between the feet.
 //
 // `g` grows the whole outline (the panda uses g = fit_gap so the flange slides into
 // its rebate). Keeping this in ONE place is what guarantees the cage's foot and the
@@ -135,15 +140,31 @@ module base_flange_2d(g = 0) {
 // The full SOLID shell body (filled, not hollow) built by lofting the chamfered
 // section between successive profile rows. `shrink` insets it (0 = outer surface,
 // wall thickness = inner shrink). Spans Z from profile[0] to the last row.
+// Each profile row is [z, cf, cb] or [z, cf, cb, fyb]. The optional 4th column is a
+// PER-HEIGHT FRONT SETBACK: it pulls the belly-side face back by that much at that
+// height, on top of whatever `fyb` the caller passes.
+//
+// WHY IT EXISTS. Without it the front is one flat plane, so it has to clear the
+// WORST height anywhere on the cage - and the worst height is the arm pinch at the
+// very top. That couples cage height to screen depth directly: on the 200mm host, a
+// cage tall enough for the ESP32 (top at panda Z86) forces the front plane back to
+// Y29.6 and buries the screen ~31mm deep, while a cage short enough to keep the
+// front at Y45 cannot fit the ESP32 at all. With a setback the front plate stays
+// forward through the OLED's span and steps back only above the arms, which is the
+// change that lets both fit at once.
+function prof_fyb(row) = len(row) > 3 ? row[3] : 0;
+
 module shell_stack(profile, shrink = 0, fyb = 0) {
     seg_eps = 0.02;
     for (i = [0 : len(profile) - 2]) {
         z0 = profile[i][0];   z1 = profile[i+1][0];
         hull() {
             translate([0, 0, z0]) linear_extrude(seg_eps)
-                shell_section(profile[i][1],   profile[i][2],   shrink, fyb);
+                shell_section(profile[i][1],   profile[i][2],   shrink,
+                              fyb + prof_fyb(profile[i]));
             translate([0, 0, z1]) linear_extrude(seg_eps)
-                shell_section(profile[i+1][1], profile[i+1][2], shrink, fyb);
+                shell_section(profile[i+1][1], profile[i+1][2], shrink,
+                              fyb + prof_fyb(profile[i+1]));
         }
     }
 }
