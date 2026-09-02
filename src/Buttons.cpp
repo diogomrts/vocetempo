@@ -17,7 +17,10 @@ static const uint8_t kPinSwitch = 25;  // KY-023 SW, shorts to GND when pressed
 // mounted, so these are the one thing to flip after assembly if the stick feels
 // backwards. Confirm with `pio run -e joystick_test -t upload`, which prints the
 // raw values and the decoded direction.
-static const bool kInvertX = false;
+//
+// X is inverted: the stick sits rotated relative to the earlier enclosure, so
+// left/right came out swapped on the assembled unit. Y reads correctly as-is.
+static const bool kInvertX = true;
 static const bool kInvertY = false;
 
 // Number of resting samples averaged at boot to find the stick's centre.
