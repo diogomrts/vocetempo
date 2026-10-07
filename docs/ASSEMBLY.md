@@ -379,8 +379,13 @@ the cage's back wall - so it goes on before the cage goes in. Order matters here
    the cage is in.
 5. Slide the cage up into the body. The whole assembly stands **14.68 mm** proud of
    the cage's back face, far more than the base hatch clears, so it rides up the
-   stepped **insertion channel** moulded into the rump. If it fouls, the module is
-   rotated 90 deg (step 2) - the channel's outer step is only gimbal-wide.
+   **insertion channel** moulded into the rump. The revised body also has a narrow
+   groove for the bare shaft, which reaches another 5.95 mm beyond the gimbal.
+   Keep the stick centred during insertion and use the orientation in step 2.
+   The v2 body has the broad deep recess on the LEFT when looking at its back
+   and allows 3 mm more PCB spacing than the nominal 2 mm stand-off.
+   The older STL missed the shaft's travel and could catch even when oriented
+   correctly; see the assembly-relief notes in `enclosure/README.md`.
 6. Press the printed **`joy_cap`** onto the stick through the rump bore. A drop of
    CA - it is an 11 mm stalk on 5.95 mm of shaft engagement, so glue it. The oval
    socket keys it against rotation; if it will not seat, you have it 90 deg out.
@@ -395,9 +400,9 @@ Print it **flat face down** (the machined-looking side on the bed, dome upward) 
 it needs no supports. Fitted, its lowest point clears the table by ~0.8 mm, so the
 panda still stands on its own feet.
 
-There is a deliberate **notch at the bottom rear**, roughly 28 x 6 mm, where the
-joystick's insertion channel breaks through the skin. Nothing covers it; it faces
-the table.
+There is a deliberate **notch at the bottom rear** where the joystick's insertion
+channel breaks through the skin. With the assembly relief it reaches roughly
+19.2 mm above the base; the narrow centre clears the bare shaft. It remains open.
 
 ---
 

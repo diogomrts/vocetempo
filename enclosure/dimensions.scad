@@ -545,6 +545,21 @@ joy_cap_tip_d    = 6.5;   // tapered down where it passes through the skin
 //   6.5 tip + 2 x 3.26 + slack = 14.0, comfortably under the 16mm dome.
 joy_rump_bore_d = 14.0;
 
+// Body-only relief v2 (2026-10-07): another 3mm beyond the first revision,
+// including the PCB/header shoulders and bare-shaft groove. The left side,
+// looking directly at the panda's back, also gets a broad deep recess.
+// The printed cage, cap bore and mounting positions remain the same.
+joy_channel_extra_depth  = 6.0;
+joy_channel_extra_height = 10.0;
+joy_channel_shoulder_gap = 4.5;
+joy_channel_roof_r       = 3.0;
+joy_channel_shaft_gap    = 3.8; // accommodates 3mm extra PCB spacing + 0.8mm gap
+// Left recess setback above the working area: [panda Z, depth pulled inward].
+// The rear skin narrows with height; this smooth slope keeps about 1mm of skin
+// above the entrance instead of breaking through the upper-left rump.
+joy_channel_left_profile = [[-1, 0], [55, 0], [60, 0.6],
+                            [65, 1.3], [70, 2.1], [72.35, 2.6]];
+
 // ---- Print / fit parameters -----------------------------------------------
 wall            = 2.4;    // shell wall thickness (good on a 0.4mm nozzle)
 fit_gap         = 0.4;    // clearance around parts and in cutouts

@@ -104,79 +104,116 @@ module panda_oled_cut() {
 }
 
 // ---- JOYSTICK, on the RUMP -------------------------------------------------
-// The module bolts to standoffs on the OUTSIDE of the cage's back wall, so the whole
-// assembly - standoff, PCB, gimbal - lives in the rump. The rump is 25.7mm of solid
-// body here (cage back face at panda Y-43, skin at Y-68.71), and the assembly is
-// 14.68mm of that, so there is ~11mm left for the cap stalk.
+// The joystick bolts to the OUTSIDE of the cage's back wall. Its PCB, bent
+// header and gimbal must travel up the rump as the cage enters from below.
+// The cap is fitted afterwards through the separate bore at dev_joy_pz.
 //
-// TWO CUTS, both on the back (-Y), plus the bore:
+// Body-only relief v2, 2026-10-07: another 3mm deeper than the first relief at
+// the gimbal, PCB/header shoulders and shaft. A broad deep recess reaches the
+// LEFT edge as seen directly from the back (panda -X). Above the working area
+// it slopes inward with the narrowing skin. The 10mm taller channel, rounded
+// roof, cap centre and printed cage mounting positions are retained.
 //
-//  1. BORE for the printed stalk cap: joy_rump_bore_d through to the skin. Small on
-//     purpose - it only has to clear the 6.5mm tapered stalk plus its 3.3mm swing,
-//     so the cap's 16mm dome overhangs the hole and hides its edge.
-//  2. INSERTION CHANNEL + POCKET, as one STEPPED prism running from the base plane
-//     up past the module. The cage enters from below, so the whole assembly has to
-//     travel up the inside of the rump to reach its position - the pocket IS the top
-//     of the channel. It is stepped in Y because the two parts have very different
-//     widths: the PCB is 32.3 across X but only 3mm deep, while the gimbal is 23.4
-//     across X and 11.8 deep. Cutting the deep part at the PCB's width would eat
-//     another 12mm of rump for nothing.
+// Previously three rounded prisms only met at the PCB plane. Their rounded
+// corners left inward ridges, and the header had its own lower ceiling. Hull
+// the footprints into one continuous channel: its sloping shoulders remove
+// those snags without cutting the entire header width to the gimbal's depth.
 //
-// THE CHANNEL DELIBERATELY NOTCHES THROUGH THE SKIN over panda Z2..6: the rump
-// surface at |X|14 is only at Y-48.19 (Z2), -54.58 (Z4) and -57.73 (Z6), so reaching
-// Y-58.5 there breaks out - 8.5mm deep at Z2, tapering to nothing by Z6. It leaves a
-// ~28 x 6mm notch at the very bottom rear, on the table side, which is the cheapest
-// place on the model to spend it. The alternative - clipping the channel to the skin
-// - just makes the cage un-insertable.
-joy_gimbal_y   = -58.5;                    // deepest the gimbal reaches (+ margin)
-// Back of the PCB + standoffs + margin. The stack is wall -43, standoff -45,
-// PCB back -45.92 - so the old -46.0 left 0.08mm of margin, i.e. none at FDM
-// tolerances, and the deep step's rounded corner (r=2) actually bulged INTO the
-// -46 plane by 0.5 near |X|13, right where the upper standoffs sweep past.
-joy_pcb_y      = -46.5;
-joy_chan_w     = joy_body_w2 + 4;          // deep step: gimbal 23.40 + clearance
-joy_pocket_w   = joy_pcb_h + 4;            // shallow step: PCB 32.30 across X
-joy_chan_front = cage_yc - (cage_d/2 - sled_wall);   // inner face of the back wall
-joy_chan_top   = dev_joy_pz + joy_pcb_w/2 + 2;       // above the PCB's top edge
-// THE BENT HEADER needs its own step. The 5-pin header leaves a SHORT edge of the
-// PCB, raised joy_pin_raise off the component face and bent to run parallel to the
-// board - so it rides BEHIND the PCB plane (rump side, past joy_pcb_y) but BESIDE
-// the gimbal, outside the deep step's 27.4mm width: x out to 16.15 + 5.2 = 21.35,
-// y down to -45.92 - 6 = -51.9. Neither existing step covers that corner, so the
-// mounted module could not pass the channel at all. The step is SYMMETRIC in X so
-// the module can be fitted pins-left or pins-right, and stops at joy_pin_top
-// because nothing sweeps above the header row. Skin check (rump raycast table,
-// 2026-08-24): at |X|22.9 the skin is at Y-55.1 by Z6 and deeper above, so a
-// -53 step keeps >=2.1mm of wall everywhere above the base notch, which widens
-// from ~28mm to ~46mm over panda Z2..5 - still on the table side, unseen.
-joy_pins_y     = -53;                        // back of the bent row + margin
-joy_pin_chan_w = joy_pcb_h + 2*(joy_pin_ext + 1.5);  // 45.7, pins either side
-joy_pin_top    = dev_joy_pz + joy_pin_row/2 + 2;     // above the header row (58.35)
+// The channel intentionally opens through the domed underside. Extra depth
+// raises this existing bottom opening. Do not clip the channel to the skin:
+// that would put material back in the joystick's insertion path.
+joy_gimbal_y   = -58.5 - joy_channel_extra_depth;   // -64.5, gimbal rear limit
+joy_pcb_y      = -46.5 - joy_channel_shoulder_gap;  // -51.0, PCB shoulder
+joy_pins_y     = -53   - joy_channel_shoulder_gap; // -57.5, bent header
+joy_chan_w     = joy_body_w2 + 4;                  // 27.4, gimbal + clearance
+joy_pocket_w   = joy_pcb_h + 4;                    // 36.3, PCB across X
+joy_pin_chan_w = joy_pcb_h + 2*(joy_pin_ext + 1.5); // 45.7, pins either side
+joy_chan_front = cage_yc - (cage_d/2 - sled_wall); // inner face of back wall
+joy_chan_top   = dev_joy_pz + joy_pcb_w/2 + 2
+                 + joy_channel_extra_height;     // 75.35, was 65.35
+// The shaft travels with the module even when the thumb cap is removed. The old
+// channel cleared only the gimbal (-57.68); the bare shaft reaches Y-63.63.
+// Give it a narrow rounded groove, ending in the existing cap bore. The added
+// depth also allows 3mm more PCB-to-cage spacing than the recorded assembly.
+joy_shaft_y    = cage_yc - cage_d/2 - joy_so_h - joy_pcb_t - joy_body_h
+                 - joy_shaft_len - joy_channel_shaft_gap; // -67.43
+joy_shaft_top  = dev_joy_pz + joy_shaft_d/2 + 1;            // joins the cap bore
+
+module joystick_channel_outline() {
+    hull() {
+        for (step = [[joy_chan_w, joy_gimbal_y, joy_pcb_y],
+                     [joy_pocket_w, joy_pcb_y, joy_chan_front],
+                     // Carry the wide shoulder all the way into the cavity;
+                     // stopping at the PCB plane would leave a thin inner lip.
+                     [joy_pin_chan_w, joy_pins_y, joy_chan_front]])
+            translate([0, (step[1] + step[2])/2])
+                offset(r = 2)
+                    square([step[0] - 4, step[2] - step[1] - 4], center = true);
+    }
+}
+
+module joystick_shaft_outline() {
+    hull() {
+        // 8mm wide at the tip; shoulders blend into the main channel.
+        for (sx = [-1, 1]) {
+            translate([sx*joy_shaft_d/2, joy_shaft_y + 2]) circle(r = 2);
+            translate([sx*(joy_chan_w/2 - 2), joy_gimbal_y + 2]) circle(r = 2);
+        }
+    }
+}
+
+module joystick_rounded_channel(top) {
+    r = joy_channel_roof_r;
+    // Full footprint below the roof, open beyond the base so there is no lip.
+    translate([0, 0, -1])
+        linear_extrude(top - r + 1) children();
+    // Round just the roof. A thin inset wafer plus a sphere makes the fillet
+    // without applying Minkowski to the high-resolution panda mesh.
+    translate([0, 0, top - r - 0.01])
+        minkowski() {
+            linear_extrude(0.01)
+                offset(delta = -r) children();
+            sphere(r = r);
+        }
+}
+
+module joystick_left_outline(back_y) {
+    // Extend 0.05mm beyond the main outline so the two cutter side faces do not
+    // coincide; coincident faces can export zero-thickness sheets in float STL.
+    left = -joy_pin_chan_w/2 - 0.05; // viewer's LEFT looking into the back
+    right = 2;                // overlap the central channel, no dividing rib
+    translate([(left + right)/2, (back_y + joy_chan_front)/2])
+        offset(r = 2)
+            square([right - left - 4, joy_chan_front - back_y - 4], center = true);
+}
+
+module joystick_left_channel() {
+    // Full depth through the module/side-projection zone; gently taper above it.
+    // The profile is surveyed against this 200mm sculpt, not a universal offset.
+    for (i = [0 : len(joy_channel_left_profile)-2])
+        hull() {
+            for (j = [i, i+1])
+                translate([0, 0, joy_channel_left_profile[j][0]])
+                    linear_extrude(0.01)
+                        joystick_left_outline(joy_gimbal_y + joy_channel_left_profile[j][1]);
+        }
+    // Continue the upper outline into the same rounded roof as the main channel.
+    joystick_rounded_channel(joy_chan_top)
+        joystick_left_outline(joy_gimbal_y + joy_channel_left_profile[len(joy_channel_left_profile)-1][1]);
+}
+
+module joystick_insertion_channel() {
+    joystick_rounded_channel(joy_chan_top) joystick_channel_outline();
+    joystick_rounded_channel(joy_shaft_top) joystick_shaft_outline();
+    joystick_left_channel();
+}
 
 module panda_joystick_cut() {
-    // 1. cap bore, from outside the rump inward
+    // Cap bore from outside the rump inward; unchanged diameter and position.
     translate([0, rump_face_y, dev_joy_pz])
-        rotate([-90, 0, 0])               // extrude +Y, i.e. into the body
+        rotate([-90, 0, 0])
             cylinder(h = cut_depth, d = joy_rump_bore_d);
-    // 2a. deep step: gimbal width, from joy_gimbal_y forward to the PCB plane
-    translate([0, (joy_gimbal_y + joy_pcb_y)/2, -1])
-        linear_extrude(joy_chan_top + 1)
-            offset(r = 2)
-                square([joy_chan_w - 4, (joy_pcb_y - joy_gimbal_y) - 4],
-                       center = true);
-    // 2b. shallow step: PCB width, from the PCB plane forward into the cavity
-    translate([0, (joy_pcb_y + joy_chan_front)/2, -1])
-        linear_extrude(joy_chan_top + 1)
-            offset(r = 2)
-                square([joy_pocket_w - 4, (joy_chan_front - joy_pcb_y) - 4],
-                       center = true);
-    // 2c. pin step: clears the bent 5-pin header, which rides behind the PCB
-    //     plane but beside the gimbal (see the joy_pins_y block above).
-    translate([0, (joy_pins_y + joy_pcb_y)/2, -1])
-        linear_extrude(joy_pin_top + 1)
-            offset(r = 2)
-                square([joy_pin_chan_w - 4, (joy_pcb_y - joy_pins_y) - 4],
-                       center = true);
+    joystick_insertion_channel();
 }
 
 // ---- USB-C charge exit, also on the RUMP -----------------------------------

@@ -18,6 +18,7 @@ be opened to service the clock.
 | `render_previews.sh` | Renders `previews/*.png`. |
 | `verify_window.py` | Blender check: pixel coverage of the OLED window + exactly where its cut lands on the sculpt. Run it after touching `oled_win_*`. |
 | `verify_cage.py` | Ray-casts the exported cage and asserts every mount is real: bosses on flat wall, OLED envelope clear, joystick standoffs proud of the back wall, base open, cover ledge present. Run it after touching any mount. |
+| `verify_joystick_channel.py` | Checks the exported body against the printed cage, the joystick's full insertion sweep (including bare shaft and bent header), and the remaining rear wall. |
 | `probe_skin.py` | Where the sculpt's belly surface is at any (X, Z). |
 | `probe_env.py` | Belly / rump / half-width envelope per height - how big a box fits. |
 | `fit_shell.py` | **Solves** `shell_prof` against the sculpt. Re-run after changing `cage_w`, `cage_d`, `cage_yfront`, `cage_z0` or `cage_h`. |
@@ -80,9 +81,57 @@ The cost is depth. Measured out from the cage's back face at panda Y-43:
 14.68  proud of the wall  (the rump is 25.7 mm deep here, leaving 11.0 for the cap)
 ```
 
-So the rump keeps its **insertion channel** - now stepped, wide enough for the
-32.3 mm PCB near the wall and only gimbal-wide further out - and the printed
-**stalk cap** spans the remaining 11 mm to the surface.
+The rump has a **continuous insertion channel**, wide enough for the PCB and bent
+header near the cage and narrowing toward the gimbal. The printed **stalk cap**
+spans the remaining 11 mm to the surface and is fitted only after insertion.
+
+### Assembly relief v2, 2026-10-07
+
+The physical assembly needs more room than the original nominal clearance check
+suggested. The joystick is mounted sideways, and the **left side when looking
+straight into the panda's back** needs the deeper recess all the way across.
+That side is **panda -X**. The first comparison's simplified hardware overlay
+omitted the side projection and assumed the recorded 2 mm PCB stand-off; it must
+not be used as a measurement of the assembled device.
+
+The v2 body adds another **3 mm of depth beyond the first relief**, keeps the
+channel **10 mm taller than the original**, and preserves the printed cage,
+cover, cap bore, magnet seats and mounting locations:
+
+- Main gimbal limit **Y-64.5**: **21.5 mm behind the cage wall**, 6 mm deeper than
+  the original channel and 3 mm deeper than v1.
+- PCB/header shoulders also gain **another 3 mm**, to Y-51 and Y-57.5.
+- Bare-shaft groove **Y-67.43**: **24.43 mm behind the cage wall**, another 3 mm
+  beyond v1. This allows 3 mm extra PCB spacing while keeping 0.8 mm beyond the
+  recorded shaft tip.
+- A **broad left recess** extends to X-22.9 and Y-64.5 through Z55. Above that it
+  slopes inward with the narrowing rear skin and joins the **3 mm rounded roof**
+  at Z75.35. Its 2 mm side corner radii avoid sharp notch corners.
+- The continuous underside opening reaches approximately **Z19.2 mm**. The wall
+  tapers above the opening; over Z25..75.35 the 0.5 mm inspection grid measured a
+  minimum **1.06 mm** to the outside skin. The USB and cap holes are excluded.
+  The user explicitly accepted a thinner rear wall for this clearance revision.
+
+The export is one closed, consistently oriented solid. Checks pass for the
+printed cage and the full insertion sweep with **3 mm extra PCB stand-off**, both
+in-plane PCB/gimbal orientations, the bare shaft, both header directions and an
+additional bulky left-side allowance. No unintended rear openings were found
+above the entrance. These are geometric allowances, not confirmation of the
+unmeasured assembly or a material-strength simulation.
+
+Export and check from this directory:
+
+```sh
+openscad --backend=Manifold --export-format binstl -o stl/panda_body.stl panda.scad
+# Requires numpy, trimesh, manifold3d, scipy and rtree:
+python verify_joystick_channel.py stl/panda_body.stl
+```
+
+**Print `stl/panda_body_joystick_relief_v2.stl`.** `panda_body.stl` and the versionless
+`panda_body_joystick_relief.stl` also contain v2, as does `stl/Archive.zip`.
+The original and first relief are retained in `stl/previous/`.
+See `previews/joystick_bottom_comparison_v2.png` for the actual channel profiles;
+the blue line marks v1. Earlier comparison images are historical v1 views.
 
 ### Printable parts (via the `part` selector at the bottom of `cage.scad`)
 
@@ -200,7 +249,7 @@ the old sculpt for comparison.
 ## The panda body (`panda.scad`)
 
 Imports the sculpt **untouched**, hollows only where the cage sits, and cuts the
-OLED window (belly), the joystick cap bore + stepped insertion channel (rump), the
+OLED window (belly), the joystick cap bore + continuous insertion channel (rump), the
 **USB-C exit** (rump), the speaker chimney into the hollow head, the ear grilles,
 and the base hatch/rebate. Needs the **Manifold** backend (`--backend=Manifold`);
 the 500k-triangle mesh is far too slow for CGAL.
@@ -213,10 +262,9 @@ Three things about this host are worth knowing before editing it:
   `cage_z0` is 7, why the base flange's front rim is a *pull* rather than a reach,
   and why the base cover is intersected with the sculpt instead of being a flat
   plate (it would otherwise stand up to 14 mm proud of the belly).
-- **The joystick channel notches the skin** over panda Z2..6, up to 8.5 mm deep,
-  ~28 mm wide, at the very bottom rear. That is deliberate: clipping the channel to
-  the skin just makes the cage un-insertable, and the bottom rear is the cheapest
-  place on the model to spend it.
+- **The joystick channel opens through the underside**, up to about panda Z19.2
+  after the v2 assembly relief above. That is deliberate: clipping it to the skin
+  would obstruct the shaft as the cage slides in from below.
 - **Y coordinates do not scale with the host.** X and Z do, but `panda_y_off` moved
   when the transform stopped being hand-fitted, so anything hard-coded in Y - the
   head cavity centre, the ear plenum and ducts, the skin-erosion axis - has to be

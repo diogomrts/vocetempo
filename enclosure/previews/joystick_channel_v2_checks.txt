@@ -1,0 +1,14 @@
+PASS closed mesh with consistent face orientation and positive volume
+PASS one connected body
+PASS printed cage overlap: 0.000003 mm^3
+PASS PCB + extra gap insertion overlap: 0.000000 mm^3
+PASS gimbal + extra gap insertion overlap: 0.000000 mm^3
+PASS bare shaft + extra gap insertion overlap: 0.000000 mm^3
+PASS right header + extra gap insertion overlap: 0.000000 mm^3
+PASS left header + extra gap insertion overlap: 0.000000 mm^3
+PASS deep rear-left side allowance insertion overlap: 0.000000 mm^3
+PASS no unintended rear openings above entrance: 0 missing samples
+PASS rear wall above entrance: minimum 1.063 mm at [-21.25, -64.47, 55.0], 7558 samples (openings excluded)
+PASS no new obstructions: added volume 0.000080 mm^3
+PASS relief stays in channel: 0.004973 mm^3 numerical difference outside
+Removed material: 10.01 cm^3
