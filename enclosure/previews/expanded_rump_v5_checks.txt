@@ -1,0 +1,15 @@
+PASS closed, consistently oriented mesh
+PASS one connected body
+PASS removed original material: 0.000178 mm^3
+PASS new material inside original sculpt: 0.000296 mm^3
+PASS complete joystick channel overlap: 0.000364 mm^3
+PASS USB opening overlap: 0.000142 mm^3
+PASS joystick cap bore overlap: 0.000005 mm^3
+PASS change outside lower rear region: 0.005029 mm^3
+PASS width, height, ground plane and front extent unchanged
+PASS rump extends backward 5.368 mm
+INFO added 22.137 cm^3 outside the original skin
+PASS no new cage interference at 353 positions: 0.000000 mm^3
+PASS rear opening covered: 0 missing rays of 7380
+PASS rear wall along Y: minimum 1.555 mm on 0.5 mm grid
+INFO underside intentionally open; existing higher front-corner interference unchanged.

@@ -1,9 +1,10 @@
 // ============================================================================
 // Vocetempo - the PANDA BODY (hollowed host for the electronics cage).
 //
-// Imports the sculpt (panda/panda_original_without_embosses.stl - NEVER edited in
-// place), scales it to 200mm tall, hollows the interior, and cuts the
-// functional openings. This host is the DE-EMBOSSED variant: the sculpted screen
+// Uses the de-embossed sculpt (NEVER edited in place). The body uniformly scales
+// the original 200mm reference to 217.4mm; panda_raw() remains at 200mm for the
+// already-printed cage and all mounting geometry. Fixed hardware cavities and
+// openings are then cut into the larger outer blank. The sculpted screen
 // plaque and belly knob have been shaved off, so the belly is a clean curved
 // surface and the openings are placed by measurement rather than by feature.
 //
@@ -58,12 +59,19 @@ module panda_raw() {
             scale(panda_scale) import(panda_stl, convexity = 10);
 }
 
+// Uniformly enlarge the complete original sculpt about the ground-plane origin.
+// Keep panda_raw() and skin_inset() unchanged: the printed cage, cover, cavity
+// and magnet references remain in their original 200mm coordinate frame.
+module panda_body_blank() {
+    scale(panda_body_scale) panda_raw();
+}
+
 // ---- Opening placements (belly is +Y, rump is -Y) ---------------------------
 // Placements come from dimensions.scad (single source of truth).
 //
 // THE BELLY CARRIES ONLY THE SCREEN; the joystick is on the RUMP.
-belly_face_y   = 80;             // outside the belly (peak 69.1) so cuts punch through
-rump_face_y    = -80;            // outside the back (deepest -69.1), same idea
+belly_face_y   = 80;             // outside the 108.7% belly (peak 75.09)
+rump_face_y    = -80;            // outside the 108.7% back (deepest -75.09)
 screen_cz      = dev_oled_pz;    // OLED window centre (panda Z)
 cut_depth      = 100;            // how far a cut solid reaches back from the surface
 
@@ -119,9 +127,9 @@ module panda_oled_cut() {
 // the footprints into one continuous channel: its sloping shoulders remove
 // those snags without cutting the entire header width to the gimbal's depth.
 //
-// The channel intentionally opens through the domed underside. Extra depth
-// raises this existing bottom opening. Do not clip the channel to the skin:
-// that would put material back in the joystick's insertion path.
+// The channel stays open from BELOW for assembly. Its extra depth used to break
+// through the lower rear skin too. At 108.7% uniform body scale, the breakout is
+// confined to the low underside entrance; the rounded sculpt stays undeformed.
 joy_gimbal_y   = -58.5 - joy_channel_extra_depth;   // -64.5, gimbal rear limit
 joy_pcb_y      = -46.5 - joy_channel_shoulder_gap;  // -51.0, PCB shoulder
 joy_pins_y     = -53   - joy_channel_shoulder_gap; // -57.5, bent header
@@ -381,7 +389,7 @@ module panda_head_vents() {
 // during insertion. Copying the base profile left a 1.8mm inward hook at Z7.1.
 // Keep the entrance at full width/depth through the flange height instead.
 // Higher corner shaping remains from the 200mm body, where a full sweep would
-// puncture the paws. This local entrance repair retains the higher shaping.
+// puncture the paws. Uniform outer scaling deliberately retains this cavity.
 // cav_clear / cav_front_gap / cav_fyb are in dimensions.scad (cage.scad needs them).
 module panda_cavity() {
     entry_prof = [for (row = shell_prof)
@@ -515,14 +523,16 @@ module panda_magnet_pockets() {
 // ---- Assembly --------------------------------------------------------------
 module panda_body() {
     difference() {
-        panda_raw();
+        panda_body_blank();
         panda_cavity_safe();
-        panda_head_cavity();
+        // Acoustic features follow the head; both chimney sections overlap.
+        scale(panda_body_scale) panda_head_cavity();
         panda_oled_cut();
         panda_joystick_cut();
         panda_usb_cut();
         panda_neck_bore();
-        panda_head_vents();
+        scale(panda_body_scale) panda_neck_bore();
+        scale(panda_body_scale) panda_head_vents();
         panda_base_hatch();
         panda_base_rebate();
         panda_magnet_pockets();

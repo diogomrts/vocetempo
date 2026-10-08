@@ -1,0 +1,22 @@
+PASS body: closed mesh with consistent orientation
+PASS body: one connected solid
+PASS cap: closed mesh with consistent orientation
+PASS cap: one connected solid
+PASS outer blank is exactly 108.7% original sculpt: 0.000000 mm^3 difference
+PASS body dimensions [157.28, 150.182, 217.4] mm (X/Y/Z), feet at Z0
+PASS no patch or bulge outside the uniformly scaled sculpt
+PASS all fixed hardware cutters clear: 0.000489 mm^3 overlap
+PASS existing magnet seat/support (38,50) retained: 0.000000 mm^3 lost
+PASS existing magnet seat/support (-38,50) retained: 0.000000 mm^3 lost
+PASS existing magnet seat/support (44,17) retained: 0.000000 mm^3 lost
+PASS existing magnet seat/support (-44,17) retained: 0.000000 mm^3 lost
+PASS minimum channel wall above flange seat: 1.019302 mm at [-21.44, -64.424, 11.2], 20836 samples (intended ports excluded)
+PASS existing cage seats without overlap
+PASS feet entrance clear at 353 poses: 0.000000 mm^3
+PASS higher corner overlap unchanged: 5.777457 mm^3 (previous 5.777457)
+PASS long cap tilt clear in 1152 poses: 0.000000 mm^3 maximum overlap
+PASS cap still clears with 10% radial enlargement: 0.000000 mm^3 overlap
+INFO 217.4mm print height required. Use the matching scaled-body cap; the original 11mm cap is too short.
+INFO underside stays open; original higher corner interference remains. Physical fit and cap strength are not certified.
+INFO lower rear ray survey (0.5mm X / 0.25mm Z, USB excluded): highest missing rear skin at Z9.5, within underside entrance below Z11.2; minimum Y-wall above Z11.25 is 1.342mm.
+INFO dense scale comparison at limiting edge: 108.6% -> 0.975890mm; 108.7% -> 1.019302mm; 108.8% -> 1.062713mm.

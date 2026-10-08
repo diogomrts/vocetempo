@@ -3,7 +3,7 @@
 //
 // This is the real integration test - it places the cage exactly where it lives
 // in the panda and lets you confirm:
-//   * the OLED/joystick on the cage FRONT sit just behind the belly openings,
+//   * the OLED at the front and joystick at the back align with their openings,
 //   * the speaker on the cage TOP lines up with the neck chimney,
 //   * the cage stays INSIDE the body (no shell poking through - see the
 //     `breach` mode, which shows only the cage material OUTSIDE the panda).
@@ -17,6 +17,8 @@
 //   "ghost"  panda translucent + cage solid (default; see alignment)
 //   "section" X=0 cross-section of both (see the sound path + recesses)
 //   "breach" ONLY the cage material sticking OUT of the panda (should be ~nothing)
+//   "joystick_void" / "usb_void" export the actual cutters for clearance checks
+//   "body_blank" / "hardware_void" export the outer skin / fixed hardware cuts
 //
 // Render (Manifold backend required for the 500k-tri panda):
 //   openscad --backend=Manifold -o previews/fitcheck.png --imgsize=700,900 \
@@ -55,4 +57,12 @@ else if (mode == "breach") {
         placed_cage();
         panda_raw();
     }
+}
+else if (mode == "joystick_void") joystick_insertion_channel();
+else if (mode == "usb_void") panda_usb_cut();
+
+else if (mode == "body_blank") panda_body_blank();
+else if (mode == "hardware_void") union() {
+    panda_cavity_safe(); panda_oled_cut(); panda_joystick_cut(); panda_usb_cut();
+    panda_base_hatch(); panda_base_rebate(); panda_magnet_pockets();
 }

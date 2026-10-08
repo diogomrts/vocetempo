@@ -1,4 +1,4 @@
-"""Check the 200 mm panda's rear channel with the requested extra assembly room.
+"""Check the panda's fixed rear channel with the requested extra assembly room.
 
 Run from enclosure/ after exporting panda.scad:
     python verify_joystick_channel.py stl/panda_body.stl
@@ -38,7 +38,7 @@ def volume(mesh):
     return 0.0 if mesh.is_empty else abs(mesh.volume)
 
 
-def rear_wall_samples(body):
+def rear_wall_samples(body, skin_path=None):
     """Nearest exterior distance from channel walls on a 0.5 mm X/Z grid.
 
     Z25 is above the enlarged underside entrance and its taper. Only the known
@@ -46,11 +46,15 @@ def rear_wall_samples(body):
     so an accidental breakthrough cannot silently disappear from the samples.
     This is a geometric check, not a strength simulation.
     """
-    skin = trimesh.load_mesh(ROOT / "panda/panda_original_without_embosses.stl")
-    skin.apply_transform(np.array([
-        [-212.9096, 0, 0, 0], [0, -212.9096, 0, 9.036],
-        [0, 0, 212.9096, 0], [0, 0, 0, 1],
-    ]))
+    if skin_path is None:
+        skin = trimesh.load_mesh(ROOT / "panda/panda_original_without_embosses.stl")
+        skin.apply_transform(np.array([
+            [-212.9096, 0, 0, 0], [0, -212.9096, 0, 9.036],
+            [0, 0, 212.9096, 0], [0, 0, 0, 1],
+        ]))
+    else:
+        # A derived outer sculpt is already in final panda millimetres.
+        skin = trimesh.load_mesh(skin_path)
     x, z = np.meshgrid(np.arange(-22.75, 23, 0.5), np.arange(25, 75.36, 0.5))
     origins = np.column_stack([x.ravel(), np.full(x.size, -80), z.ravel()])
     cap = origins[:, 0]**2 + (origins[:, 2] - 50)**2 <= 7.5**2
@@ -79,6 +83,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("body", type=Path)
     parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--skin", type=Path, help="outer sculpt in final panda mm (e.g. fitcheck body_blank)")
     args = parser.parse_args()
     body = trimesh.load_mesh(args.body)
     failures = []
@@ -113,7 +118,7 @@ def main():
         collision = volume(boolean("intersection", body, box(lo, hi)))
         check(collision < 0.01, f"{name} insertion overlap: {collision:.6f} mm^3")
 
-    thickness, point, count, missing = rear_wall_samples(body)
+    thickness, point, count, missing = rear_wall_samples(body, args.skin)
     check(missing == 0, f"no unintended rear openings above entrance: {missing} missing samples")
     check(thickness >= 1.0,
           f"rear wall above entrance: minimum {thickness:.3f} mm at "

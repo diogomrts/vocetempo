@@ -675,6 +675,44 @@ module joy_cap() {
     }
 }
 
+// Separate cap for the 217.4mm uniformly enlarged body. The original joy_cap()
+// stays available for the 200mm body and already-printed parts. Socket dimensions
+// remain identical; the thinner neck clears the fixed 14mm bore at 11deg tilt.
+module joy_cap_scaled_body() {
+    sock_d = joy_shaft_d + 2*sock_clr;
+    sock_w = joy_shaft_w + 2*sock_clr;
+    sock_depth = joy_shaft_len + 0.5;
+    neck_d = joy_scaled_cap_neck_d;
+    taper_end = joy_scaled_cap_taper_end;
+    stalk = joy_scaled_cap_stalk;
+    d = joy_slim_cap_d;
+    difference() {
+        union() {
+            linear_extrude(sock_depth)
+                oval2d(sock_w + 2*cap_wall, sock_d + 2*cap_wall);
+            hull() {
+                translate([0, 0, sock_depth - 0.1])
+                    cylinder(h = 0.1, d = joy_cap_barrel_d);
+                translate([0, 0, taper_end - 0.1])
+                    cylinder(h = 0.1, d = neck_d);
+            }
+            translate([0, 0, taper_end])
+                cylinder(h = stalk - taper_end, d = neck_d);
+            translate([0, 0, stalk])
+                cylinder(h = 1.2, d1 = neck_d, d2 = d);
+            translate([0, 0, stalk + 1.2]) hull() {
+                cylinder(h = 0.1, d = d);
+                translate([0, 0, joy_cap_dome])
+                    scale([1, 1, 0.5]) sphere(d = d - 1);
+            }
+        }
+        translate([0, 0, -eps])
+            linear_extrude(sock_depth) oval2d(sock_w, sock_d);
+        translate([0, 0, -eps])
+            linear_extrude(1.0) oval2d(sock_w + 1.2, sock_d + 1.2);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // ASSEMBLY
 // ---------------------------------------------------------------------------
@@ -745,7 +783,8 @@ module cage() {
 //   "cover"     base cover - closes the cage's open underside
 //   "esp32_bar" ESP32 retention bar
 //   "dfp_bar"   DFPlayer retention bar
-//   "joy_cap"   printed joystick stalk cap
+//   "joy_cap"   historical 200mm-body joystick cap
+//   "joy_cap_scaled_body" longer cap for the current 217.4mm body
 //   "all"       everything, small parts laid beside the cage (preview only)
 // (there is no "joy_frame" any more - the KY-023 bolts straight to the back wall's
 //  outer standoffs through its own four holes.)
@@ -757,10 +796,11 @@ else if (part == "cover")     base_cover();
 else if (part == "esp32_bar") esp32_bar();
 else if (part == "dfp_bar")   dfp_bar();
 else if (part == "joy_cap")   joy_cap();
+else if (part == "joy_cap_scaled_body") joy_cap_scaled_body();
 else if (part == "all") {
     cage();
     translate([0, -D - 30, 0]) base_cover();
     translate([-W, -D, 0]) esp32_bar();
     translate([-W, -D-15, 0]) dfp_bar();
-    translate([-W, -D-60, 0]) joy_cap();
+    translate([-W, -D-60, 0]) joy_cap_scaled_body();
 }

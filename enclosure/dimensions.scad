@@ -430,7 +430,15 @@ usb_screw_dx    = 24;     // future panel-mount screw spacing
 // Resulting frame: X centred, feet on Z0, belly at +Y, Y bounding box centred on 0.
 //   bbox  X -72.35..72.35   Y -69.08..69.08   Z 0..200
 panda_scale     = 212.9096; // = 200 / 0.93937 raw Z span
-panda_h         = 200;      // final height (Z)
+panda_h         = 200;      // fixed reference height for the already-printed cage
+// Body-only scale: preserve the original proportions without resizing its cuts.
+// v7: 1.087 -> 217.4mm tall. Minimum sampled notch wall is 1.019mm at Z11.2.
+// 1.086 leaves <1mm there. Port cutters still reach Y +/-80.
+panda_body_scale = 1.087;
+// Matching cap; leaves the original 200mm-body cap dimensions unchanged.
+joy_scaled_cap_stalk = 20.0;
+joy_scaled_cap_neck_d = 4.0;
+joy_scaled_cap_taper_end = 13.0;
 panda_x_off     = 0;        // this mesh is symmetric (derived value 0.006)
 panda_y_off     = 9.036;    // panda_raw() translate; was a hand-fitted 26
 panda_w         = 145;      // approx overall width at the base
@@ -560,6 +568,17 @@ joy_channel_shaft_gap    = 3.8; // accommodates 3mm extra PCB spacing + 0.8mm ga
 // above the entrance instead of breaking through the upper-left rump.
 joy_channel_left_profile = [[-1, 0], [55, 0], [60, 0.6],
                             [65, 1.3], [70, 2.1], [72.35, 2.6]];
+// HISTORICAL v5 only; not used by panda_body(). Run expand_rump.py after
+// changing these or the host transform. Its C2 blend moves the sculpt itself;
+// the body still uses the same cavity/channel cutters and the original cage.
+rump_expand_back = 7.5;  // maximum rearward vertex movement; overall depth +5.37
+rump_expand_down = 9.0;  // extends the curve below the base, then clips at Z0
+rump_expand_z_full = 12;
+rump_expand_z_end = 45;  // original skin at the cap bore (Z50) stays untouched
+rump_expand_y_start = -20;
+rump_expand_y_full = -50;
+rump_expand_x_full = 30;
+rump_expand_x_end = 60;
 
 // ---- Print / fit parameters -----------------------------------------------
 wall            = 2.4;    // shell wall thickness (good on a 0.4mm nozzle)
