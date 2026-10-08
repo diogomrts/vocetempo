@@ -463,6 +463,7 @@ cav_front_gap = 0.35;     // MUCH tighter on the BELLY-FRONT face, so the wall o
                           // the screen stays thick. A uniform 1.0 inflates the
                           // cavity into the belly skin at the arm-fold -> pin-holes.
 cav_fyb       = cav_clear - cav_front_gap;   // front-face bias (0.65)
+cav_entry_extra = 0.8;   // body-only front lead-in; tapers out by the flange seat
 cav_min       = 1.4;      // min belly wall the skin clip guarantees at the arm-fold
 cav_clip_z    = 71;       // panda Z above which the cavity (and the cage's upper
                           // shell) are clipped to an inward-eroded skin. 71 = cage

@@ -1,0 +1,13 @@
+PASS closed, consistently oriented mesh
+PASS one connected body
+PASS no added material: 0.000002 mm^3
+PASS changes confined to front entrance: 0.000002 mm^3 outside
+INFO removed 381.040 mm^3
+PASS magnet pocket/support (38, 50) unchanged
+PASS magnet pocket/support (-38, 50) unchanged
+PASS magnet pocket/support (44, 17) unchanged
+PASS magnet pocket/support (-44, 17) unchanged
+PASS entrance clear at 353 positions: maximum overlap 0.000000 mm^3 (before 103.588)
+PASS seated cage overlap 0.000003 mm^3
+PASS no worse interference elsewhere
+INFO full-body straight insertion still has 5.777 mm^3 maximum overlap at the unchanged higher corner ridges. The local entrance check is not a full insertion certification.

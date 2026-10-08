@@ -376,24 +376,24 @@ module panda_head_vents() {
 // The body only needs to be hollow WHERE THE CAGE SITS - not a uniform thin
 // shell (scaling the mesh down breaks thin features like the ears).
 //
-// The cavity is now built from the SAME shell_prof as the cage (dimensions.scad),
-// inflated by cav_clear, then placed exactly where the cage lives (spun 180 about
-// Z, set at cage_yc / cage_z0). So the cavity is guaranteed to contain the cage
-// with a uniform slide-in gap, and - because the cage profile itself was solved
-// to clear the panda skin - the cavity stays (just) inside the skin too, instead
-// of punching the old "shoulder/armpit" holes. The speaker reaches the head via
-// the neck bore, so the cavity needn't go higher than the cage.
+// The cavity follows the seated cage profile, except at the entrance. The cage's
+// base pulls inward by 2.22mm, but its wider upper wall has to pass that height
+// during insertion. Copying the base profile left a 1.8mm inward hook at Z7.1.
+// Keep the entrance at full width/depth through the flange height instead.
+// Higher corner shaping remains from the 200mm body, where a full sweep would
+// puncture the paws. This local entrance repair retains the higher shaping.
 // cav_clear / cav_front_gap / cav_fyb are in dimensions.scad (cage.scad needs them).
 module panda_cavity() {
+    entry_prof = [for (row = shell_prof)
+        [row[0], row[1], row[2], row[0] <= rim_h ? 0 : prof_fyb(row)]];
     translate([0, cage_yc, cage_z0])
         rotate([0, 0, 180])
-            // shell body inflated by cav_clear (negative shrink) on sides/back, but the
-            // front face pulled back by cav_fyb; extended below its base into the hatch.
             union() {
-                shell_stack(shell_prof, -cav_clear, cav_fyb);
+                shell_stack(entry_prof, -cav_clear, cav_fyb);
                 translate([0, 0, -(cage_z0 + 2)])
                     linear_extrude(cage_z0 + 2 + 0.1)
-                        shell_section(shell_prof[0][1], shell_prof[0][2], -cav_clear, cav_fyb);
+                        shell_section(entry_prof[0][1], entry_prof[0][2],
+                                      -cav_clear, cav_fyb);
             }
 }
 
@@ -463,18 +463,19 @@ module panda_cavity_safe() {
 // plaque dissolves it, which is what this file now does.
 
 // ---- Base hatch: open the underside so the cage slides in ------------------
-// It is the CAGE'S OWN BASE CROSS-SECTION extruded down to the ground, inflated by
-// the same cav_clear/cav_fyb the cavity uses, not a plain rectangle. That matters
-// here: a cage_d+2 rectangle reaches panda Y46, which is 3mm further forward than
-// the cage's base actually is (shell_prof row 0 sets it back 2.22), and every one of
-// those millimetres is cut out of a belly that at panda Z2 has only reached Y40.3.
+// The entrance clears the widest shell section that passes through it, not just
+// the narrower base section. A front-only lead-in opens another 0.8mm below Z7,
+// blending back to the normal 0.35mm front gap at the flange seat (Z11.2). Keeping
+// the sides/back and rebate ceiling unchanged preserves the four magnet seats.
 module panda_base_hatch() {
+    entry = [shell_prof[0][0], shell_prof[0][1], shell_prof[0][2], 0];
     translate([0, cage_yc, cage_z0])
         rotate([0, 0, 180])
-            translate([0, 0, -(cage_z0 + 2)])
-                linear_extrude(cage_z0 + 2 + eps)
-                    shell_section(shell_prof[0][1], shell_prof[0][2],
-                                  -cav_clear, cav_fyb + prof_fyb(shell_prof[0]));
+            shell_stack([
+                [-(cage_z0 + 2), entry[1], entry[2], entry[3] - cav_entry_extra],
+                [0,             entry[1], entry[2], entry[3] - cav_entry_extra],
+                [rim_h,         entry[1], entry[2], entry[3]]
+            ], -cav_clear, cav_fyb);
 }
 eps = 0.01;
 
