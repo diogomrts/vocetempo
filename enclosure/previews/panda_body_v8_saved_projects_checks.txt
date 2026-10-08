@@ -1,0 +1,34 @@
+Saved 3MF audit — 2026-10-08
+Revalidation of the native-saved projects after the original paint-generation report.
+SOURCE SHA256 220ba07d7753083b2f96bede6821568c68caace10a8ec932fa273a7e83edd210
+
+panda_body_uniform_v8_black_white_full.3mf
+PASS ZIP integrity and package XML parsing.
+PASS no instance scaling or rotation.
+PASS 500162 triangles with identical connectivity to approved v8 STL.
+PASS maximum coordinate deviation from approved v8 STL: 0.000004629 mm (native-save rounding).
+INFO latest saved painting changes 3796 triangle paint strings versus the original generated full-body painting; these edits are preserved.
+PASS white #FFFFFF and black #000000 filament slots retained.
+3MF SHA256 7634134714bdce6f65fc8d3e4cacfa76700318c5ea02267ac8b4934337cf20c1
+
+panda_colored_final.3mf
+PASS ZIP integrity and package XML parsing.
+PASS no instance scaling or rotation.
+PASS 500162 triangles with identical connectivity to approved v8 STL.
+PASS maximum coordinate deviation from approved v8 STL: 0.000004629 mm (native-save rounding).
+INFO latest saved painting changes 3796 triangle paint strings versus the original generated full-body painting; these edits are preserved.
+PASS white #FFFFFF and black #000000 filament slots retained.
+3MF SHA256 58bef67ba6faa52458507b529a0506990c5c0d65cf66188a855ca4962afa7bb0
+
+/private/tmp/vocetempo-commit-audit/final-roundtrip.3mf
+PASS ZIP integrity and package XML parsing.
+PASS no instance scaling or rotation.
+PASS 500162 triangles with identical connectivity to approved v8 STL.
+PASS maximum coordinate deviation from approved v8 STL: 0.000004629 mm (native-save rounding).
+INFO latest saved painting changes 3796 triangle paint strings versus the original generated full-body painting; these edits are preserved.
+PASS white #FFFFFF and black #000000 filament slots retained.
+3MF SHA256 2b626b4041eaa2e07573edcd203f707ace9c481659c26443b9e44dd02d881c83
+
+PASS both saved projects contain identical geometry and painting; only package organization/metadata differs.
+PASS final project imports and re-exports in Bambu Studio 2.8.2.61 with all 500162 paint strings and both filament colours unchanged.
+INFO unsliced projects; select the actual printer, filament and print profiles before slicing.

@@ -1,0 +1,15 @@
+PASS ZIP integrity; all package XML parses.
+PASS exact vertex and triangle equality with approved v8 STL (zero geometric change).
+PASS same 500162 source triangles; closed, consistently oriented mesh.
+PASS all cutouts, vents, cage cavity and exterior preserved by exact mesh equality.
+PASS dimensions: 157.280235 x 150.181999 x 217.399979 mm.
+PASS filament 1 white #FFFFFF; filament 2 black #000000.
+PASS 500162 valid paint trees, including 1969 refined boundary triangles.
+PASS painted leaves: white 307239, black 262568.
+PASS Bambu Studio 2.8.2.61 imports and re-exports the model successfully.
+PASS every paint string and both filament colours survive native Bambu round-trip exactly.
+PASS native mesh round-trip max coordinate deviation: 0.000004629 mm.
+PASS native Bambu Studio preview displays both assigned colours.
+INFO unsliced model: choose actual printer, material and print profiles; scale 100%.
+SOURCE SHA256 220ba07d7753083b2f96bede6821568c68caace10a8ec932fa273a7e83edd210
+3MF SHA256 34f2ae4d4febce51cec82ef06215d6ef0788b95461a7383f885cc0f405412b61

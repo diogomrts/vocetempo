@@ -10,6 +10,32 @@ cavity and hardware cuts remain at their original size and position. Use the
 new `joy_cap_scaled_body.stl` with this body; the original cap is too short.
 Print the exports at **100% in the slicer** — do not scale the completed STL.
 
+The latest two-colour version is
+[`3mf/panda_colored_final.3mf`](3mf/panda_colored_final.3mf).
+The saved [`full` project](3mf/panda_body_uniform_v8_black_white_full.3mf) has
+identical geometry and painting; the final file packages its mesh in one model entry.
+Open it **as a project** in Bambu Studio / OrcaSlicer to retain the painting:
+filament 1 is white and filament 2 is black. Select your actual printer, material
+and print profiles before slicing; the file is an unsliced painted model.
+The original 500,162 triangles and all v8 cutouts are unchanged. Black covers
+the ears, eye patches/eyes, nose, arms/shoulder band and feet. The colour data
+survived a Bambu Studio 2.8.2.61 import/export check without changes.
+The complete surface revision wraps the black feet around both full soles,
+connects both arms continuously into the back band, and paints the ear vent bore
+walls black. Fine paint boundaries follow the sculpted seams. The internal cage
+and mounting surfaces remain white; the physical mesh is unchanged.
+See the [six-angle full-body preview](previews/panda_body_v8_paint_full_views.png),
+[360-degree view](previews/panda_body_v8_paint_full_turntable.gif),
+[underside and arm comparison](previews/panda_body_v8_paint_full_comparison.png),
+and [original painting report](previews/panda_body_v8_paint_full_checks.txt).
+The latest saved projects include additional paint touch-ups on 3,796 triangles;
+they preserve the approved v8 geometry within native-save rounding (under 0.0001 mm).
+See the [saved-project audit](previews/panda_body_v8_saved_projects_checks.txt)
+for current file hashes and the final Bambu Studio round-trip check.
+The [previous precision painting](3mf/panda_body_uniform_v8_black_white_precision.3mf),
+[detailed painting](3mf/panda_body_uniform_v8_black_white_detailed.3mf), and
+[first painted version](3mf/panda_body_uniform_v8_black_white.3mf) are retained.
+
 ## Files
 
 | File | Purpose |
@@ -446,6 +472,11 @@ lines where the arm meets the chest, and eye patches that either spill past the
 sculpted almond or shrink to the pupil depending on how the curved face happens to
 slice the solid. No amount of tuning the numbers fixes that, and the numbers had to
 be re-guessed on every host change because they were pure eyeballing.
+
+The current two-colour 3MF linked above uses native slicer surface painting on
+the unchanged mesh. The arm and paw boundaries follow recessed sculpted seams;
+the rear shoulder band uses a smooth painted boundary. No colour solids are
+subtracted from or added to the body.
 
 ## The OLED window (and the paws it no longer cuts)
 

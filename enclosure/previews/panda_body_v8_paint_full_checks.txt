@@ -1,0 +1,24 @@
+HISTORICAL original generated painting report (before the later native saves).
+For the current full/final files and hashes, see panda_body_v8_saved_projects_checks.txt.
+
+PASS ZIP integrity; all package XML parses.
+PASS only paint attributes changed in the mesh XML; original 3MF preserved.
+PASS printer, filament and print settings match the previous project.
+PASS exact vertex and triangle equality with approved v8 STL (zero geometric change).
+PASS same 500162 source triangles; closed, consistently oriented mesh.
+PASS all cutouts, vents, cage cavity and exterior preserved by exact mesh equality.
+PASS dimensions: 157.280235 x 150.181999 x 217.399979 mm.
+PASS filament 1 white #FFFFFF; filament 2 black #000000.
+PASS 500162 valid paint trees, including 11899 refined boundary triangles.
+PASS painted leaves: white 450137, black 434133.
+PASS Bambu Studio 2.8.2.61 imports and re-exports the model successfully.
+PASS every paint string and both filament colours survive native Bambu round-trip exactly.
+PASS native mesh round-trip max coordinate deviation: 0.000004629 mm.
+INFO new paint boundary subdivisions: maximum 0.035 mm leaf-edge target; geometry unchanged.
+PASS 86939 exterior foot samples, including both soles, are black.
+PASS 22675 shoulder-band samples remain black through both arm joins.
+PASS existing solid-black arm/head painting preserved; outer head paint trees unchanged.
+INFO internal mounting and cage surfaces remain white.
+INFO unsliced model: choose actual printer, material and print profiles; scale 100%.
+SOURCE SHA256 220ba07d7753083b2f96bede6821568c68caace10a8ec932fa273a7e83edd210
+3MF SHA256 4394e775cb8d851f6adfec0ae22bf05dad945ce5a2653d0a4386033719e955af
