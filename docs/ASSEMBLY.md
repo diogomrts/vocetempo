@@ -263,11 +263,12 @@ a part designed to come apart repeatedly.
   gasket compressed between flange and roof.
 - Sound then runs **cage top -> neck chimney -> hollow head -> ears**. The grille
   is *not* on the face: it is cut into the sculpted **stippled inner dish of each
-  ear** (13 holes, 2.4 mm, hex 4/5/4, on the dish's own major axis), fed by a
+  ear** (13 holes per ear, about 2.61 mm on the current 108.7% body,
+  hex 4/5/4, on the dish's own major axis), fed by a
   shallow plenum under the skin and three ducts into the head void. See
   `panda_head_vents()` / `ear_vent()` in `panda.scad` and
-  `previews/panda_ear_grille.png`. Open areas are matched (grille 58.8 mm^2 per
-  ear vs ~54.6 mm^2 of duct throat).
+  `previews/panda_ear_grille.png`. Open areas are matched (grille about 69.5 mm^2 per
+  ear vs ~64.5 mm^2 of duct throat on the 108.7% body).
 - `helpers.scad`'s generic `speaker_grille()` is unused - the ear grille is
   solved against the sculpt's own geometry instead.
 - Keep the head cavity as sealed as practical. Every unintended gap is bass
@@ -282,7 +283,7 @@ a part designed to come apart repeatedly.
 | --- | --- | --- |
 | USB-C | Slot in the body's rear, aligned with the sled's ESP32 | Reflash and power without removing the sled |
 | microSD | Slot in the **base cover**, under the DFPlayer | Changeable without opening anything |
-| Joystick | Bore in the body's rear, at panda Z46 | The one control; stalk cap presses in from outside |
+| Joystick | Bore in the body's rear, at panda Z50 | The one control; stalk cap presses in from outside |
 | Amp vents | Slots low on the body's back | The DFPlayer's amp runs warm in a sealed box |
 
 Make the USB-C opening `esp_usb_w`/`esp_usb_h` plus `fit_gap`, and **oversize it
@@ -386,9 +387,16 @@ the cage's back wall - so it goes on before the cage goes in. Order matters here
    and allows 3 mm more PCB spacing than the nominal 2 mm stand-off.
    The older STL missed the shaft's travel and could catch even when oriented
    correctly; see the assembly-relief notes in `enclosure/README.md`.
-6. Press the printed **`joy_cap`** onto the stick through the rump bore. A drop of
-   CA - it is an 11 mm stalk on 5.95 mm of shaft engagement, so glue it. The oval
-   socket keys it against rotation; if it will not seat, you have it 90 deg out.
+   The v3 body also removes the catching lip between the feet and adds a 0.8 mm
+   entrance lead-in. Higher corner shaping beside the paws is retained to avoid
+   wall holes; the entrance check does not guarantee a friction-free full stroke.
+6. For the **217.4 mm v8 body**, print and fit **`joy_cap_scaled_body`** through the
+   unchanged rump bore. Its 20 mm stalk reaches the enlarged back; the older
+   11 mm `joy_cap` is only for the 200 mm bodies. The keyed socket is unchanged.
+   Print the 4 mm neck solid, test movement before gluing, then secure with a
+   small drop of CA. The oval socket keys it against rotation; if it will not
+   seat, rotate it 90 degrees. The new cap has been checked geometrically, not
+   strength-tested as a physical print.
 7. Thread the USB-C lead out of the **rear slot** and fit the printed **`cover`**
    over the base: 6 self-tappers up into the ledge inside the walls. The cover has
    a microSD slot under the DFPlayer and a finger notch at the front - check you
@@ -400,9 +408,16 @@ Print it **flat face down** (the machined-looking side on the bed, dome upward) 
 it needs no supports. Fitted, its lowest point clears the table by ~0.8 mm, so the
 panda still stands on its own feet.
 
-There is a deliberate **notch at the bottom rear** where the joystick's insertion
-channel breaks through the skin. With the assembly relief it reaches roughly
-19.2 mm above the base; the narrow centre clears the bare shaft. It remains open.
+The v8 body **uniformly enlarges the whole original panda to 108.7%**, reduced
+from v6's 115%. It measures **157.3 × 150.2 × 217.4 mm (W/D/H)**; print at **100%
+slicer scale** so the cavity stays the same size. The cage, cover, mounting
+positions and hardware cuts remain unchanged. The minimum modeled notch wall
+above the flange seat is **1.019 mm**; going to 108.6% would leave less than 1 mm.
+The round outer shape is preserved and the underside remains open for insertion.
+Use the matching 20 mm cap from step 6. The known small higher front-corner snags
+remain; the repaired entrance is clear in the model. V8 also opens a short internal
+transition above the speaker so its full offset grille feeds the central chimney.
+The printed cage and the v7 20 mm cap stay unchanged.
 
 ---
 

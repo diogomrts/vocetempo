@@ -286,14 +286,10 @@ module joystick_wire_cut() {
 // Speaker long axis (51.25 body, 69.5 tip-to-tip) runs along X; its 30.9 width
 // runs along Y. Ears extend on the long (X) axis only.
 //
-// The whole speaker is shifted spk_cy_off toward the BELLY (-Y). Reason: the top
-// necks IN at the back for the panda's folded arms; if the speaker stayed centred,
-// its rear ears would need the top to flare back OUT (an outward-pointing overhang
-// tab - the "pointy protrusions"). Nudging the speaker forward lets BOTH ear rows
-// sit inside a top that necks in monotonically, so no tabs are needed.
+// The speaker is shifted spk_cy_off toward the BACK (+Y), clearing the large
+// front chamfer. The shared offset in dimensions.scad also positions the body's
+// sound inlet; panda Y = cage_yc - spk_cy_off = -7.
 top_z = H;          // outer plane of the top wall
-spk_cy_off = 8;     // speaker Y-centre, shifted toward the BACK (+Y) so its ears
-                    // clear the big FRONT chamfer that relieves the belly/arms
 
 // A stadium (rectangle + semicircular ends) profile in the XY plane.
 module stadium(len, wid) {

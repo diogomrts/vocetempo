@@ -5,6 +5,11 @@ Parametric 3D-printable enclosure for the panda-themed talking clock, written in
 that drops into a hollowed panda figurine from below, so the panda never has to
 be opened to service the clock.
 
+**Current body: v8, 217.4 mm tall (108.7% of the original sculpt).** The cage,
+cavity and hardware cuts remain at their original size and position. Use the
+new `joy_cap_scaled_body.stl` with this body; the original cap is too short.
+Print the exports at **100% in the slicer** — do not scale the completed STL.
+
 ## Files
 
 | File | Purpose |
@@ -12,13 +17,18 @@ be opened to service the clock.
 | `dimensions.scad` | Every component measurement + design decision, in ONE place. **Edit here.** |
 | `helpers.scad` | Shared shape modules (rounded box, screw boss, etc.). |
 | `cage.scad` | The electronics cage - the real mechanical part. Print-ready. |
-| `panda.scad` | The panda body: imports the sculpt, hollows it, cuts the openings. |
+| `panda.scad` | The panda body: uniformly enlarges the original sculpt, then applies fixed-size hardware cuts. |
+| `expand_rump.py` | Historical v5 local deformation generator; no longer used by the current body. |
 | `fitcheck.scad` | Seats the cage in the body (ghost / section / breach modes). |
 | `layout_walls.scad` | 2D map of all four mounting walls, unrolled (collision check). Includes `cage.scad`, so it cannot drift from the geometry. |
 | `render_previews.sh` | Renders `previews/*.png`. |
 | `verify_window.py` | Blender check: pixel coverage of the OLED window + exactly where its cut lands on the sculpt. Run it after touching `oled_win_*`. |
 | `verify_cage.py` | Ray-casts the exported cage and asserts every mount is real: bosses on flat wall, OLED envelope clear, joystick standoffs proud of the back wall, base open, cover ledge present. Run it after touching any mount. |
 | `verify_joystick_channel.py` | Checks the exported body against the printed cage, the joystick's full insertion sweep (including bare shaft and bent header), and the remaining rear wall. |
+| `verify_entrance.py` | Checks the entrance against 353 cage positions and verifies that the local repair preserves the rest of the body and magnet supports. Reports higher corner interference separately. |
+| `verify_rear_cover.py` | Historical v4/v5 rear-cover checks; not applicable to the uniformly scaled v6/v7 bodies. |
+| `verify_assembly_alignment.py` | Audits actual OLED sight lines, speaker aperture/connected sound path/all 26 ear vents, USB alignment, unchanged cage geometry and the v8 internal-only correction. |
+| `verify_uniform_body.py` | Checks exact uniform scaling, fixed hardware clearances, magnet supports, cage insertion and the longer cap at both PCB spacings/socket orientations. |
 | `probe_skin.py` | Where the sculpt's belly surface is at any (X, Z). |
 | `probe_env.py` | Belly / rump / half-width envelope per height - how big a box fits. |
 | `fit_shell.py` | **Solves** `shell_prof` against the sculpt. Re-run after changing `cage_w`, `cage_d`, `cage_yfront`, `cage_z0` or `cage_h`. |
@@ -119,19 +129,165 @@ additional bulky left-side allowance. No unintended rear openings were found
 above the entrance. These are geometric allowances, not confirmation of the
 unmeasured assembly or a material-strength simulation.
 
-Export and check from this directory:
+Check the preserved v2 export from this directory:
 
 ```sh
-openscad --backend=Manifold --export-format binstl -o stl/panda_body.stl panda.scad
 # Requires numpy, trimesh, manifold3d, scipy and rtree:
-python verify_joystick_channel.py stl/panda_body.stl
+python verify_joystick_channel.py stl/panda_body_joystick_relief_v2.stl
 ```
 
-**Print `stl/panda_body_joystick_relief_v2.stl`.** `panda_body.stl` and the versionless
-`panda_body_joystick_relief.stl` also contain v2, as does `stl/Archive.zip`.
-The original and first relief are retained in `stl/previous/`.
+`stl/panda_body_joystick_relief_v2.stl` preserves the approved joystick revision.
+The latest body adds the entrance fix and smooth rump expansion below. The original and first relief are
+retained in `stl/previous/`.
 See `previews/joystick_bottom_comparison_v2.png` for the actual channel profiles;
 the blue line marks v1. Earlier comparison images are historical v1 views.
+
+### Entrance relief v3, 2026-10-07
+
+The printed cage caught a sharp lip between the feet. The old body cavity copied
+the cage's narrowed base section, even though the wider upper cage wall must pass
+that same height. At Z7.1 the lip projected about **1.8 mm into the insertion
+path**. V3 removes it and adds a front-only **0.8 mm lead-in bevel**, tapering to
+the existing front clearance at the flange seat, Z11.2.
+
+Only 0.381 cm³ is removed, entirely within the front entrance below Z11.25.
+The magnet pockets/supports, flange seat, OLED opening and joystick v2 geometry
+are unchanged; none of the already-printed cage parts needs replacing. The
+export is one closed solid. At 353 cage positions spaced 0.25 mm apart, entrance
+overlap falls from 103.588 mm³ to zero. The seated cage and all joystick checks
+also pass. See `previews/entrance_comparison_v3.png` and the accompanying check
+reports.
+
+**Scope limit:** the higher corner ridges beside the paws remain. Removing their
+entire insertion envelope would open holes in the outer wall. A perfectly
+straight full-body insertion still has up to 5.777 mm³ overlap there, unchanged
+by this local repair. V3 fixes the reported entrance obstruction; it is not a
+guarantee of a completely interference-free physical assembly.
+
+`stl/panda_body_entrance_relief_v3.stl` preserves this revision for comparison.
+
+```sh
+python verify_entrance.py stl/panda_body_entrance_relief_v3.stl --baseline stl/panda_body_joystick_relief_v2.stl
+```
+
+### Reduced uniform enlargement v7, 2026-10-08
+
+V7 reduces the body enlargement from **15% to 8.7%**, keeping the whole original
+sculpt uniformly scaled about the ground-plane origin. Its round proportions are
+unchanged. Overall size is **157.280 × 150.182 × 217.4 mm (W/D/H)**, down from
+166.396 × 158.886 × 230 mm in v6. `panda_body_scale` controls only the body blank;
+`panda_h`, `panda_raw()` and the original skin reference stay at 200 mm for the
+already-printed cage and base cover.
+
+**The lower-left notch corner sets the minimum scale.** With the fixed notch and
+original outside shape, 108.7% leaves a minimum sampled wall of **1.019 mm** above
+the underside flange seat at Z11.2. At 108.6% it drops to 0.976 mm. This is the
+smallest tested scale in 0.1% increments that retains a 1 mm wall there. The
+nearest-surface check covers 20,836 points, with 0.05 mm spacing along the limiting
+lower edge; intentional USB and cap openings are excluded. This is a geometric
+thickness measurement, not a material-strength guarantee. The wall higher up is
+thicker because the unchanged notch and original outer curve are different
+shapes; above Z25 its minimum is 6.667 mm, reduced from 10.538 mm in v6.
+
+The cage cavity, v2 deep left joystick channel, v3 entrance lead-in, screen window,
+14 mm cap bore, USB cutter, flange seat and magnet pockets keep their sizes and
+coordinates. The sound chamber and ear vents follow the enlarged head; overlapping
+original/scaled chimney sections join them to the fixed speaker position. The
+screen is more recessed than on the original body, but less than in v6. The
+underside remains open for cage insertion.
+
+**Reprint the body and the matching `joy_cap_scaled_body` cap.** The back at the
+cap centre is now 6.18 mm farther out than the original. The v7 cap has a **20 mm
+stalk and 4 mm neck**, shortened from v6's 24 mm stalk; it retains the same keyed
+socket and 16 mm thumb pad. It clears the unchanged bore in both socket
+orientations, nominal and +3 mm PCB spacing, 0–11° tilt in 15° azimuth increments
+(1,152 poses), also with a 10% radial size allowance. Print the neck solid and
+check fit/movement before gluing. The cage, cover and retention bars are unchanged.
+
+Validation: one connected closed body; the blank exactly matches the uniformly
+scaled original; all fixed hardware cutters are clear; all four magnet supports
+remain intact. The cage seats without collision and the repaired feet entrance
+clears at 353 insertion positions. The existing **5.777 mm³ higher front-corner
+interference remains**, so this is not a physical friction-free fit certification.
+The PCB, sideways gimbal, bare shaft and both header orientations pass the existing
+insertion-envelope checks, including the requested extra 3 mm PCB spacing.
+
+**Latest body: `stl/panda_body_uniform_v8.stl`.** `panda_body.stl` and
+`panda_body_joystick_relief.stl` are identical copies. The matching cap is
+`stl/joy_cap_uniform_v7.stl`, also copied to `joy_cap_scaled_body.stl`.
+`stl/Archive.zip` contains the current body, matching cap, unchanged cage/cover/bars
+and printing notes. Slice these at **100%** to preserve the unscaled cavity;
+217.4 mm usable print height is needed, plus any raft.
+
+See `previews/uniform_body_comparison_v7.png` for original/v6/v7 size comparison
+and `previews/uniform_body_section_v7.png` for the thinner rear-wall section.
+Reports are `previews/uniform_body_v7_*checks.txt`.
+
+```sh
+# OpenSCAD Manifold; Python checks need numpy/trimesh/manifold3d/scipy/rtree.
+openscad --backend=Manifold --export-format binstl -o stl/panda_body.stl panda.scad
+openscad --backend=Manifold -D 'part="joy_cap_scaled_body"' -o stl/joy_cap_scaled_body.stl cage.scad
+openscad --backend=Manifold -D 'mode="body_blank"' -o /tmp/blank.stl fitcheck.scad
+openscad --backend=Manifold -D 'mode="hardware_void"' -o /tmp/hardware_void.stl fitcheck.scad
+openscad --backend=Manifold -D 'mode="joystick_void"' -o /tmp/channel.stl fitcheck.scad
+openscad --backend=Manifold -D 'mode="usb_void"' -o /tmp/usb.stl fitcheck.scad
+python verify_uniform_body.py stl/panda_body.stl --scale 1.087 --channel /tmp/channel.stl --usb /tmp/usb.stl --blank /tmp/blank.stl --hardware-void /tmp/hardware_void.stl --cap stl/joy_cap_scaled_body.stl --baseline stl/panda_body_entrance_relief_v3.stl
+python verify_joystick_channel.py stl/panda_body.stl --skin /tmp/blank.stl
+```
+
+Previous versioned bodies, caps and previews are retained for comparison. V4's
+cover and v5's local rump deformation were rejected aesthetically; v6's uniform
+115% enlargement was too large. The v5 generator/source pair is no longer used
+by `panda.scad`. The original `joy_cap` remains available for 200 mm bodies.
+Print exports and ZIPs stay local under the existing ignore rule.
+
+### Assembly alignment audit / speaker inlet v8, 2026-10-08
+
+V8 keeps v7's **108.7% sculpt, 217.4 mm height, 1.019 mm minimum notch wall,
+fixed cage cavity and same cap**. A full export audit found that the speaker's
+cage opening is centred at panda Y-7 (the cage speaker is shifted 8 mm), while
+the neck chimney is centred near Y1. A 3.208 mm rear strip of the throat therefore
+met body material immediately above the cage roof: 142.541 mm³ of obstruction
+inside the exported throat cutter.
+
+`panda_speaker_inlet()` now clears the whole opening through the roof and blends
+it into the existing neck chimney. The speaker offset is shared in
+`dimensions.scad` so the two parts cannot drift. It removes **580.715 mm³** of
+internal plastic; the change stays at least **37.938 mm inside the outer skin**.
+Nothing is added, and no external shape, electronics placement, magnet seat,
+OLED/joystick/USB cut or cage geometry changes. The printed cage and v7 cap remain
+usable; the body is the only updated print file.
+
+The audit verifies:
+
+- Current cage source versus already-printed `cage.stl`: **zero geometric change**.
+  OLED, speaker and joystick bosses/pilots, base ledge and side-board mounts pass
+  `verify_cage.py`.
+- OLED: 55.4 × 28.4 mm body opening, centred X0/Z47.8; all 8,192 pixel sight lines
+  clear the cage. The body shows **8,188**, with the same four extreme corner
+  pixels masked by its original 2 mm corner radii.
+- Speaker: full offset cage throat clear, connected inlet/chimney/head chamber,
+  **all 26 ear vents open to the exterior**. Acoustic loudness/resonance has not
+  been measured on a physical print.
+- Joystick: fixed 14 mm bore at X0/Z50; sideways PCB/gimbal/header and bare-shaft
+  insertion envelopes pass, including +3 mm PCB spacing and the deep left recess.
+  The unchanged v7 20 mm cap passes all **1,152** movement poses.
+- USB: both body and cage slots clear all **589** access-ray samples.
+- Cage seating, four magnet supports, thin notch wall and repaired entrance still
+  pass. The existing higher front-corner insertion interference remains unchanged.
+
+Reports: `previews/assembly_v8_checks.txt`, `assembly_v8_cage_checks.txt`,
+`assembly_v8_uniform_checks.txt` and `assembly_v8_joystick_checks.txt`.
+
+```sh
+openscad --backend=Manifold -D 'part="cage"' -o /tmp/cage-current.stl cage.scad
+openscad --backend=Manifold -D 'mode="speaker_void"' -o /tmp/speaker.stl fitcheck.scad
+openscad --backend=Manifold -D 'mode="speaker_inlet"' -o /tmp/inlet.stl fitcheck.scad
+openscad --backend=Manifold -D 'mode="acoustic_void"' -o /tmp/acoustic.stl fitcheck.scad
+python verify_cage.py stl/cage.stl
+# /tmp/blank.stl comes from the body_blank export above.
+python verify_assembly_alignment.py stl/panda_body.stl --baseline stl/panda_body_uniform_v7.stl --blank /tmp/blank.stl --cage-source /tmp/cage-current.stl --speaker /tmp/speaker.stl --acoustic /tmp/acoustic.stl --inlet /tmp/inlet.stl
+```
 
 ### Printable parts (via the `part` selector at the bottom of `cage.scad`)
 
@@ -140,7 +296,8 @@ openscad --backend=Manifold -o stl/cage.stl      -D 'part="cage"'      cage.scad
 openscad --backend=Manifold -o stl/cover.stl     -D 'part="cover"'     cage.scad
 openscad -o stl/esp32_bar.stl -D 'part="esp32_bar"' cage.scad
 openscad -o stl/dfp_bar.stl   -D 'part="dfp_bar"'   cage.scad
-openscad -o stl/joy_cap.stl   -D 'part="joy_cap"'   cage.scad   # stalk thumb-cap
+openscad -o stl/joy_cap_scaled_body.stl -D 'part="joy_cap_scaled_body"' cage.scad # current 217.4mm body
+openscad -o stl/joy_cap.stl -D 'part="joy_cap"' cage.scad # historical 200mm body only
 ```
 
 `cage` and `cover` need **Manifold**: both clip themselves to the panda mesh (the
@@ -153,7 +310,10 @@ Then check it:
 python verify_cage.py stl/cage.stl
 ```
 
-## Host sculpt: the de-embossed panda at 200 mm
+## Original 200 mm reference and design history
+
+The following measurements describe the **200 mm reference used by the cage**.
+The current v8 outer body is separately enlarged to 217.4 mm as described above.
 
 `panda/panda_original_without_embosses.stl` removes the sculpt's embossed screen
 plaque and belly knob, so openings no longer have to land on a sculpted feature.
@@ -262,15 +422,16 @@ Three things about this host are worth knowing before editing it:
   `cage_z0` is 7, why the base flange's front rim is a *pull* rather than a reach,
   and why the base cover is intersected with the sculpt instead of being a flat
   plate (it would otherwise stand up to 14 mm proud of the belly).
-- **The joystick channel opens through the underside**, up to about panda Z19.2
-  after the v2 assembly relief above. That is deliberate: clipping it to the skin
-  would obstruct the shaft as the cage slides in from below.
+- **The joystick channel opens through the underside.** V2/V3 also broke through
+  the rear skin up to about Z19.2. V5 expands the original rump to close the rear breakout while
+  preserving the underside entrance and the entire insertion channel.
 - **Y coordinates do not scale with the host.** X and Z do, but `panda_y_off` moved
   when the transform stopped being hand-fitted, so anything hard-coded in Y - the
   head cavity centre, the ear plenum and ducts, the skin-erosion axis - has to be
   re-measured, not rescaled. Rescaling puts the ear plenum 20 mm outside the mesh.
 
-Nothing in this pipeline trims, deforms or re-sculpts the mesh.
+The original sculpt is never edited in place. V5 generates a derived outer sculpt
+with a smooth local expansion before the functional openings are subtracted.
 
 ### There is no colour split, on purpose
 
@@ -285,10 +446,6 @@ lines where the arm meets the chest, and eye patches that either spill past the
 sculpted almond or shrink to the pupil depending on how the curved face happens to
 slice the solid. No amount of tuning the numbers fixes that, and the numbers had to
 be re-guessed on every host change because they were pure eyeballing.
-
-For a two-colour print, do it where the information actually exists: paint or vinyl
-after printing, split the mesh by hand in a sculpting tool and use that as the
-coloured source, or ask the sculptor for a mesh already split into two shells.
 
 ## The OLED window (and the paws it no longer cuts)
 

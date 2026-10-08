@@ -19,6 +19,7 @@
 //   "breach" ONLY the cage material sticking OUT of the panda (should be ~nothing)
 //   "joystick_void" / "usb_void" export the actual cutters for clearance checks
 //   "body_blank" / "hardware_void" export the outer skin / fixed hardware cuts
+//   "speaker_void" / "speaker_inlet" / "acoustic_void" check the sound path
 //
 // Render (Manifold backend required for the 500k-tri panda):
 //   openscad --backend=Manifold -o previews/fitcheck.png --imgsize=700,900 \
@@ -65,4 +66,14 @@ else if (mode == "body_blank") panda_body_blank();
 else if (mode == "hardware_void") union() {
     panda_cavity_safe(); panda_oled_cut(); panda_joystick_cut(); panda_usb_cut();
     panda_base_hatch(); panda_base_rebate(); panda_magnet_pockets();
+}
+
+else if (mode == "speaker_void")
+    translate([0, cage_yc, cage_z0]) rotate([0, 0, 180]) speaker_throat_cut();
+else if (mode == "speaker_inlet") panda_speaker_inlet();
+else if (mode == "acoustic_void") union() {
+    panda_neck_bore(); panda_speaker_inlet();
+    scale(panda_body_scale) panda_neck_bore();
+    scale(panda_body_scale) panda_head_cavity();
+    scale(panda_body_scale) panda_head_vents();
 }

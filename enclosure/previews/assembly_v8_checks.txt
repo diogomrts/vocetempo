@@ -1,0 +1,22 @@
+PASS current cage source equals already-printed cage: 0.000000 mm^3
+PASS v7 overall size and ground plane unchanged
+PASS body is one closed, consistently oriented solid
+PASS no added material/obstructions: 0.000013 mm^3
+PASS only speaker inlet changed: 0.000020 mm^3 outside inlet
+PASS speaker correction stays inside outer skin: nearest removed vertex 37.938 mm inside
+INFO removed 580.715 mm^3 inside speaker transition only.
+PASS OLED aligned at X0/Z47.8: 8188/8192 pixel centres visible; only 4 original rounded corners masked
+PASS printed cage screen cut clears all 8192 pixel sight lines
+PASS entire offset speaker aperture clear: 0.000000 mm^3 (v7 obstruction 142.541)
+PASS speaker inlet, chimney, head chamber and both ear ducts form one connected air path
+PASS connected sound path has no body obstruction: 0.000068 mm^3
+PASS all 26 ear vent centres open from outside into their plenums: 0 blocked
+PASS USB slot aligned through body: 0/589 blocked access rays
+PASS USB slot aligned through printed cage: 0/589 blocked access rays
+INFO run companion cage, joystick and uniform-body checks for mounting pilots, insertion, magnets and cap tilt.
+PASS archive CRC and every archived STL match the current files.
+PASS existing cage/cover/bars/cap and frozen v7 body hashes unchanged.
+SHA256 panda_body_uniform_v8.stl 220ba07d7753083b2f96bede6821568c68caace10a8ec932fa273a7e83edd210
+SHA256 cage.stl f5bec98a6ac82bf0fac670d4038dd3ed6256401ee2749c2013fd0266745b05d7
+SHA256 joy_cap_scaled_body.stl 2913c98afb45c4a4dc35b26556cc66f90c59e375e15e1a13919c6bce4a2713b4
+PASS already-printed cover / body overlap: 0.000000 mm^3 (cover at panda Z0..7).

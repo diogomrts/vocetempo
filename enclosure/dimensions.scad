@@ -172,6 +172,8 @@ spk_grille_w    = 26.80;  // grille opening, short axis (semicircular ends) [mea
 spk_ear_hole_d  = 3.20;   // mounting-ear hole diameter (M3) [measured]
 spk_ear_dx      = 63.60;  // ear hole spacing, long axis (60.4 n-to-n + 3.2 d) [measured]
 spk_ear_dy      = 21.20;  // ear hole spacing, short axis [measured]
+// Shared by the cage throat and the body inlet. Cage +Y maps to panda -Y.
+spk_cy_off      = 8.0;    // speaker centre toward the cage BACK (+Y)
 
 // ---- Joystick: KY-023 analog thumbstick (replaces the 4 buttons) ----------
 // Clones vary more than most modules here, so measure yours. The stick needs

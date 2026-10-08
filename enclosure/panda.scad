@@ -269,6 +269,30 @@ module panda_neck_bore() {
             offset(r = 4) square([2*sp_hw - 8, 2*sp_dep - 8], center = true);
 }
 
+// Feed the entire, offset cage throat into the central neck chimney. Without
+// this inlet, the shifted speaker's rear 3.2mm strip met solid body above Z87.
+// Keep the printed cage unchanged: the body inlet starts below its roof, stays
+// full-size through the roof, then blends into the existing neck section.
+module panda_speaker_inlet() {
+    inlet_y = cage_yc - spk_cy_off;
+    z0 = cage_z0 + cage_h - sled_wall;
+    z1 = cage_z0 + cage_h + 4;
+    z2 = cage_z0 + cage_h + 14;
+    r = (spk_grille_w + fit_gap)/2;
+    half_straight = (spk_grille_l + fit_gap)/2 - r;
+    module inlet_outline() {
+        hull() for (sx = [-1, 1])
+            translate([sx*half_straight, 0]) circle(r = r);
+    }
+    translate([0, inlet_y, z0])
+        linear_extrude(z1 - z0 + 0.01) inlet_outline();
+    hull() {
+        translate([0, inlet_y, z1]) linear_extrude(0.01) inlet_outline();
+        translate([0, sp_cy, z2]) linear_extrude(0.01)
+            offset(r = 4) square([2*sp_hw - 8, 2*sp_dep - 8], center = true);
+    }
+}
+
 // Head resonator: HOLLOW the head so the speaker chamber can actually resonate.
 // Mesh scan of the head at 200mm: half-width peaks at 63.5 around Z130, the face
 // front runs Y68.6 at Z135 down to Y45 at Z165, the back Y-65, crown ~Z196. An
@@ -531,6 +555,7 @@ module panda_body() {
         panda_joystick_cut();
         panda_usb_cut();
         panda_neck_bore();
+        panda_speaker_inlet();
         scale(panda_body_scale) panda_neck_bore();
         scale(panda_body_scale) panda_head_vents();
         panda_base_hatch();
